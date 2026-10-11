@@ -1,0 +1,11 @@
+# Godot 4
+.godot/
+/android/
+
+# Exported builds (upload these to itch.io, don't commit them)
+/export/
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+*.tmp

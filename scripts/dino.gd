@@ -6,7 +6,7 @@ extends Node2D
 ## tip it back and you slow down. Landing on a down-slope turns the fall into extra speed.
 ## Height: a floating body — gravity pulls it down; in the water, buoyancy pushes it up and drag
 ## carries it with the surface. Nothing scripts a jump: going over a crest fast enough means the
-## surface drops away faster than gravity (plus a little stickiness) can follow, so it flies.
+## surface drops away faster than gravity can follow, so it flies.
 ## Landing is always safe; only debris ends a run.
 ## The node's origin is where the board touches the water.
 
@@ -22,8 +22,8 @@ extends Node2D
 
 @export_group("Floating")
 @export var buoyancy: float = 600.0  # how hard the water pushes back per px the board is pushed under
-@export var water_drag: float = 35.0  # how strongly the dino is dragged along with the water's motion while in it
-@export var stickiness: float = 600.0  # extra pull back onto the water (px/s²) right after leaving it; higher = stays on more
+@export var water_drag: float = 10.0  # how strongly the dino is dragged along with the water's motion while in it; lower = carries its upward speed off a crest
+@export var stickiness: float = 0.0  # extra pull back onto the water (px/s²) right after leaving it; higher = stays on more
 @export var stick_range: float = 6.0  # px above the water where stickiness still acts
 
 var water: Water

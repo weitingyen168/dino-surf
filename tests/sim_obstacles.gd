@@ -1,71 +1,75 @@
 extends SceneTree
-## Headless bot for the obstacle game: when the next obstacle is `lead` px away, holds surf for `hold_s`, then lets go.
-## Prints how many obstacles it cleared vs hit, so we can tell if jumps are reliable.
-## Run: Godot_console.exe --headless --fixed-fps 60 --path . --script res://tests/sim_obstacles.gd -- lead_px hold_s seconds
+## Headless bot for tilt-the-world: holds a fixed tilt (-1 always back, 0 level, 1 always forward),
+## or with `lead` > 0 stays level and only tilts forward while debris is within `lead` px ahead.
+## Prints speed, how often and how high it flew, and how much debris it cleared vs hit.
+## Run: Godot_console.exe --headless --fixed-fps 60 --path . --script res://tests/sim_obstacles.gd -- throttle seconds [lead] [no_debris]
 
 var main: Node
 var frames := 0
 var total_frames := 0
-var lead := 150.0
-var hold_s := 0.25
-var hold_left := 0.0
-var targeted := {}
+var throttle := 0.0
+var lead := 0.0
 var passed := {}
 var cleared := 0
 var hits := 0
-var landings := 0
-var hooked := false
-var launches := 0
-var max_air := 0.0
+var throws := 0
+var air_now := 0.0
+var heights: Array[float] = []
+var speeds: Array[float] = []
 var was_on := true
 
 
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
-	lead = float(args[0]) if args.size() > 0 else lead
-	hold_s = float(args[1]) if args.size() > 1 else hold_s
-	total_frames = int((float(args[2]) if args.size() > 2 else 60.0) * 60)
+	throttle = float(args[0]) if args.size() > 0 else throttle
+	total_frames = int((float(args[1]) if args.size() > 1 else 60.0) * 60)
 	seed(1)
 	main = load("res://scenes/main.tscn").instantiate()
+	lead = float(args[2]) if args.size() > 2 else 0.0
+	if args.size() > 3 and args[3] == "no_debris":
+		main.first_obstacle_px = INF
+		main._next_spawn = INF
 	root.add_child(main)
 
 
-func _physics_process(delta: float) -> bool:
-	if not hooked:
-		hooked = true
-		main.dino.wiped_out.connect(func(): if not main.game_over: landings += 1)
+func _physics_process(_delta: float) -> bool:
+	Input.action_release("tilt_forward")
+	Input.action_release("tilt_back")
 	if main.game_over:
 		if not passed.has("go%d" % main.wipeouts):
 			passed["go%d" % main.wipeouts] = true
-			if main._game_over_label.text.contains("obstacle"):
-				hits += 1
-		Input.action_release("surf")
+			hits += 1
 		if main._game_over_time > main.retry_delay + 0.1:
-			Input.action_press("surf")
 			main._restart()
 		frames += 1
 		return _done()
-	var dx: float = main.dino.position.x
-	if was_on and not main.dino.on_surface:
-		launches += 1
-	was_on = main.dino.on_surface
-	if not main.dino.on_surface:
-		max_air = maxf(max_air, main.water.surface_y(dx) - main.dino.position.y)
+	var dino = main.dino
+	var t := throttle
+	if lead > 0.0:
+		t = 0.0
+		for o in main._obstacles:
+			if is_instance_valid(o) and o.position.x > dino.position.x - 20.0 and o.position.x - dino.position.x < lead:
+				t = 1.0
+	if t > 0.0:
+		Input.action_press("tilt_forward", t)
+	elif t < 0.0:
+		Input.action_press("tilt_back", -t)
+	speeds.append(dino.speed)
+	var gap: float = main.water.surface_y(dino.position.x) - dino.position.y
+	if was_on and not dino.on_surface and gap > 2.0:
+		throws += 1
+		air_now = 0.0
+	if not dino.on_surface:
+		air_now = maxf(air_now, gap)
+	elif not was_on and air_now > 2.0:
+		heights.append(air_now)
+		air_now = 0.0
+	if dino.on_surface or gap > 2.0:
+		was_on = dino.on_surface
 	for o in main._obstacles:
-		if not is_instance_valid(o):
-			continue
-		var id: int = o.get_instance_id()
-		if not targeted.has(id) and o.position.x - dx < lead and o.position.x > dx:
-			targeted[id] = true
-			hold_left = hold_s
-		if not passed.has(id) and o.position.x < dx - 25.0:
-			passed[id] = true
+		if is_instance_valid(o) and not passed.has(o.get_instance_id()) and o.position.x < dino.position.x - 25.0:
+			passed[o.get_instance_id()] = true
 			cleared += 1
-	if hold_left > 0.0:
-		hold_left -= delta
-		Input.action_press("surf")
-	else:
-		Input.action_release("surf")
 	frames += 1
 	return _done()
 
@@ -73,7 +77,10 @@ func _physics_process(delta: float) -> bool:
 func _done() -> bool:
 	if frames < total_frames:
 		return false
-	var tries := cleared + hits
-	print("lead=%3.0fpx hold=%.2fs  cleared=%d  hit=%d  bad_landings=%d  clear_rate=%d%%  launches=%d  max_air=%.0fpx" % [
-		lead, hold_s, cleared, hits, landings, 100 * cleared / maxi(tries, 1), launches, max_air])
+	speeds.sort()
+	heights.sort()
+	var med_h: float = heights[heights.size() / 2] if heights.size() > 0 else 0.0
+	var max_h: float = heights.back() if heights.size() > 0 else 0.0
+	print("throttle=%+.1f lead=%.0f  speed %.0f..%.0f (median %.0f)  throws=%d  height median=%.0f max=%.0f  debris cleared=%d hit=%d" % [
+		throttle, lead, speeds[0], speeds.back(), speeds[speeds.size() / 2], throws, med_h, max_h, cleared, hits])
 	return true

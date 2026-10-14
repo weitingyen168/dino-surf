@@ -181,6 +181,17 @@ func next_crest(from: float, reach: float = 800.0) -> float:
 	return from
 
 
+## How far the ocean has scrolled, in px. Screen x + scroll = world position.
+func scroll() -> float:
+	return _scroll
+
+
+## Screen-space y of the swell alone (no spring ripples) at world position w. Fixed for a given w, so it's
+## what you look ahead with: the swell at a world position never changes, it only scrolls past.
+func swell_y(w: float) -> float:
+	return base_y - _swell(w)
+
+
 ## Swell height at world position w (screen x + scroll).
 func _swell(w: float) -> float:
 	var size := 1.0 - size_variation * 0.5 * (1.0 + cos(TAU * w / variation_length))

@@ -171,7 +171,7 @@ func _snapshot() -> Dictionary:
 			obs.append([o, o.position, o.rotation])
 	return {
 		"h": water._h.duplicate(), "v": water._v.duplicate(), "ph": water._prev_h.duplicate(),
-		"scroll": water._scroll, "pscroll": water._prev_scroll, "wspeed": water.speed,
+		"scroll": water._scroll, "pscroll": water._prev_scroll, "time": water._time, "ptime": water._prev_time, "wspeed": water.speed,
 		"pos": dino.position, "vel": dino.velocity, "speed": dino.speed, "dtilt": dino.tilt, "rot": dino.rotation,
 		"on": dino.on_surface, "touch": dino._touching,
 		"tilt": main.tilt, "tv": main._tilt_vel, "dist": main.distance, "spawn": main._next_spawn, "obs": obs,
@@ -184,6 +184,8 @@ func _restore(s: Dictionary) -> void:
 	water._prev_h = s.ph.duplicate()
 	water._scroll = s.scroll
 	water._prev_scroll = s.pscroll
+	water._time = s.time
+	water._prev_time = s.ptime
 	water.speed = s.wspeed
 	dino.position = s.pos
 	dino.velocity = s.vel

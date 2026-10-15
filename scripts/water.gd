@@ -1,12 +1,14 @@
 class_name Water
 extends Node2D
 ## Spring-chain water surface with rolling ocean swells on top.
-## The swells scroll left at `speed` (how fast the dino is surfing); the springs handle local pushes.
+## The ocean scrolls left at `speed` (how fast the dino is surfing), and each swell also travels on its own,
+## like a real sea: long swells roll forward, short chop runs back, so crests drift, gang up into sets and
+## break apart again. Crests are peaked and troughs flat. The springs handle local pushes.
 ## Heights are in pixels, positive = up. Screen y = base_y - height.
 
-@export var start_x: float = -60.0
-@export var width: float = 760.0  # wider than the 640px viewport so edges stay off-screen
-@export var point_count: int = 120
+@export var start_x: float = -220.0
+@export var width: float = 1100.0  # wider than the zoomed-out view (and its tilt) so edges stay off-screen
+@export var point_count: int = 170  # keeps the spacing about 6.5 px
 @export var base_y: float = 250.0
 @export var bottom_y: float = 640.0  # well below the screen, so the fill still covers it when the camera moves
 @export var max_height: float = 140.0
@@ -29,6 +31,13 @@ extends Node2D
 @export var small_wavelength: float = 150.0
 @export var size_variation: float = 0.35  # 0..1, how much swell size rises and falls over a long stretch
 @export var variation_length: float = 2600.0
+## How fast each swell travels on its own, px/s; + = forward with the dino, - = back toward it.
+## Different speeds keep the sea changing: crests line up into big sets, then drift apart.
+@export var swell_travel: float = 40.0
+@export var mid_travel: float = -25.0
+@export var small_travel: float = -70.0
+@export var set_travel: float = 15.0  # how fast the big-and-small stretches (size_variation) drift
+@export var crest_sharpness: float = 0.6  # 0 = smooth sine, 1 = peaked crests and wide flat troughs, like real swell
 
 var speed := 200.0  # px/s the ocean scrolls left, i.e. how fast the dino surfs; set by Main
 
@@ -40,6 +49,8 @@ var _left := PackedFloat32Array()
 var _right := PackedFloat32Array()
 var _spacing: float
 var _scroll := 0.0  # how far the ocean has scrolled, in px
+var _time := 0.0  # seconds since reset; the swells travel with it
+var _prev_time := 0.0
 var _fill: Polygon2D
 var _line: Line2D
 
@@ -66,12 +77,16 @@ func reset() -> void:
 	_prev_h.fill(0.0)
 	_scroll = 0.0
 	_prev_scroll = 0.0
+	_time = 0.0
+	_prev_time = 0.0
 
 
 func _physics_process(delta: float) -> void:
 	_prev_h = _h.duplicate()
 	_prev_scroll = _scroll
+	_prev_time = _time
 	_scroll += speed * delta
+	_time += delta
 	for i in point_count:
 		_v[i] += (-stiffness * _h[i] - damping * _v[i]) * delta
 		_h[i] += _v[i] * delta
@@ -105,11 +120,12 @@ func _process(_delta: float) -> void:
 	# Physics runs at a fixed 60 Hz; blend the last two ticks so the surface moves smoothly on faster screens.
 	var f := Engine.get_physics_interpolation_fraction()
 	var sc := lerpf(_prev_scroll, _scroll, f)
+	var tm := lerpf(_prev_time, _time, f)
 	var pts := PackedVector2Array()
 	var deepest := 0.0
 	for i in point_count:
 		var x := start_x + i * _spacing
-		var y := base_y - lerpf(_prev_h[i], _h[i], f) - _swell(x + sc)
+		var y := base_y - lerpf(_prev_h[i], _h[i], f) - _swell(x + sc, tm)
 		deepest = maxf(deepest, y)
 		pts.append(Vector2(x, y))
 	_line.points = pts
@@ -144,7 +160,7 @@ func height_at(x: float) -> float:
 	var fi := (x - start_x) / _spacing
 	var i := clampi(int(floor(fi)), 0, point_count - 2)
 	var t := clampf(fi - i, 0.0, 1.0)
-	return lerpf(_h[i], _h[i + 1], t) + _swell(x + _scroll)
+	return lerpf(_h[i], _h[i + 1], t) + _swell(x + _scroll, _time)
 
 
 ## Screen-space y of the surface at x.
@@ -159,14 +175,15 @@ func slope_angle(x: float) -> float:
 
 
 ## Screen-space vertical velocity of the surface at x (negative = moving up).
-## The swell only depends on x + scroll, so its rise rate is its slope times the scroll speed.
+## The swell's rise rate at a fixed screen x comes from both the scrolling and the swells' own travel.
 func surface_velocity_y(x: float) -> float:
 	var fi := (x - start_x) / _spacing
 	var i := clampi(int(floor(fi)), 0, point_count - 2)
 	var t := clampf(fi - i, 0.0, 1.0)
 	var spring_v := lerpf(_v[i], _v[i + 1], t)
 	var w := x + _scroll
-	var swell_rate := (_swell(w + 1.0) - _swell(w - 1.0)) * 0.5 * speed
+	var e := 1.0 / 240.0
+	var swell_rate := (_swell(w + speed * e, _time + e) - _swell(w - speed * e, _time - e)) / (2.0 * e)
 	return -(spring_v + swell_rate)
 
 
@@ -175,7 +192,8 @@ func next_crest(from: float, reach: float = 800.0) -> float:
 	var step := 4.0
 	var x := from
 	while x < from + reach:
-		if _swell(x + _scroll + step) < _swell(x + _scroll) and _swell(x + _scroll) >= _swell(x + _scroll - step):
+		var here := _swell(x + _scroll, _time)
+		if _swell(x + _scroll + step, _time) < here and here >= _swell(x + _scroll - step, _time):
 			return x
 		x += step
 	return from
@@ -186,15 +204,26 @@ func scroll() -> float:
 	return _scroll
 
 
-## Screen-space y of the swell alone (no spring ripples) at world position w. Fixed for a given w, so it's
-## what you look ahead with: the swell at a world position never changes, it only scrolls past.
-func swell_y(w: float) -> float:
-	return base_y - _swell(w)
+## Seconds the swells have been travelling. Pass now + n to swell_y to look n seconds ahead.
+func time() -> float:
+	return _time
 
 
-## Swell height at world position w (screen x + scroll).
-func _swell(w: float) -> float:
-	var size := 1.0 - size_variation * 0.5 * (1.0 + cos(TAU * w / variation_length))
-	return size * (swell_amplitude * sin(TAU * w / swell_wavelength)
-		+ mid_amplitude * sin(TAU * w / mid_wavelength + 1.3)
-		+ small_amplitude * sin(TAU * w / small_wavelength + 0.7))
+## Screen-space y of the swell alone (no spring ripples) at world position w and time t. Fully predictable,
+## so it's what you look ahead with.
+func swell_y(w: float, t: float) -> float:
+	return base_y - _swell(w, t)
+
+
+## Swell height at world position w (screen x + scroll) and time t.
+func _swell(w: float, t: float) -> float:
+	var size := 1.0 - size_variation * 0.5 * (1.0 + cos(TAU * (w - set_travel * t) / variation_length))
+	return size * (_wave(swell_amplitude, swell_wavelength, w - swell_travel * t, 0.0)
+		+ _wave(mid_amplitude, mid_wavelength, w - mid_travel * t, 1.3)
+		+ _wave(small_amplitude, small_wavelength, w - small_travel * t, 0.7))
+
+
+## One swell: a sine with a second harmonic that sharpens the crests and flattens the troughs (Stokes-like).
+func _wave(amplitude: float, wavelength: float, w: float, phase: float) -> float:
+	var a := TAU * w / wavelength + phase
+	return amplitude * (sin(a) - crest_sharpness * 0.25 * cos(2.0 * a))

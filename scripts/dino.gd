@@ -10,6 +10,7 @@ extends Node2D
 ## Landing is always safe; only debris ends a run.
 ## The node's origin is where the board touches the water.
 
+@export var water: Water
 @export var gravity: float = 600.0
 @export var home_x: float = 220.0
 
@@ -37,7 +38,6 @@ extends Node2D
 @export var stickiness: float = 0.0  # extra pull back onto the water (px/s²) right after leaving it; higher = stays on more
 @export var stick_range: float = 6.0  # px above the water where stickiness still acts
 
-var water: Water
 var velocity := Vector2.ZERO
 var speed := 220.0
 var tilt := 0.0  # world tilt in radians, + = tipped down toward the direction of travel; set by Main

@@ -22,7 +22,24 @@ Two control schemes to playtest against each other:
 - **A — shape the wave:** holding raises the water just behind the dino.
 - **B — tilt the world:** holding tips gravity forward.
 
-Tuning values are exported on the `Main`, `Water` and `Dino` nodes — tweak them in the Inspector.
+Tuning values are exported on each node in `main.tscn` — tweak them in the Inspector.
+
+## Code map
+
+`main.tscn` is split into one node per system. Tree order is also tick order, so input and spawning run before the water moves.
+
+| Node | Script | Job |
+| --- | --- | --- |
+| `Main` | `main.gd` | Score, wipeout and restart; wires the systems' signals together |
+| `Controls` | `controls.gd` | Player input → world tilt, water pushes, leap, spin. All control schemes live here |
+| `Tsunami` | `tsunami.gd` | The always-on hump behind the dino |
+| `ObstacleSpawner` | `obstacle_spawner.gd` | Floats in cacti, checks slices and hits. Uses `flight_planner.gd` so every cactus is clearable |
+| `GullSpawner` | `gull_spawner.gd` | Sends in seagulls, checks knocks and hits |
+| `Water` | `water.gd` | Spring-chain surface plus travelling swells |
+| `Hazards` | — | Holds the spawned cacti (`obstacle.gd`) and gulls (`seagull.gd`), drawn behind the dino |
+| `Dino` | `dino.gd` | Floating, surfing, leaping, spinning, crashing |
+| `Camera2D` | `game_camera.gd` | Follow, lean with the tilt, shake |
+| `HUD` | `hud.gd` | Stats line and the WIPEOUT screen |
 
 ## Folders
 

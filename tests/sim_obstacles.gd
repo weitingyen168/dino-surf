@@ -27,8 +27,7 @@ func _initialize() -> void:
 	main = load("res://scenes/main.tscn").instantiate()
 	lead = float(args[2]) if args.size() > 2 else 0.0
 	if args.size() > 3 and args[3] == "no_debris":
-		main.first_obstacle_px = INF
-		main._next_spawn = INF
+		main.get_node("ObstacleSpawner").first_obstacle_px = INF
 	root.add_child(main)
 
 
@@ -40,14 +39,14 @@ func _physics_process(_delta: float) -> bool:
 			passed["go%d" % main.wipeouts] = true
 			hits += 1
 		if main._game_over_time > main.retry_delay + 0.1:
-			main._restart()
+			main.restart()
 		frames += 1
 		return _done()
 	var dino = main.dino
 	var t := throttle
 	if lead > 0.0:
 		t = 0.0
-		for o in main._obstacles:
+		for o in main.obstacle_spawner.obstacles:
 			if is_instance_valid(o) and o.position.x > dino.position.x - 20.0 and o.position.x - dino.position.x < lead:
 				t = 1.0
 	if t > 0.0:
@@ -66,7 +65,7 @@ func _physics_process(_delta: float) -> bool:
 		air_now = 0.0
 	if dino.on_surface or gap > 2.0:
 		was_on = dino.on_surface
-	for o in main._obstacles:
+	for o in main.obstacle_spawner.obstacles:
 		if is_instance_valid(o) and not passed.has(o.get_instance_id()) and o.position.x < dino.position.x - 25.0:
 			passed[o.get_instance_id()] = true
 			cleared += 1

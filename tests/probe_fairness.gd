@@ -10,6 +10,10 @@ const STEP := 6  # frames between switch points in the search
 var main: Node
 var water: Water
 var dino: Dino
+var controls: Controls
+var spawner: ObstacleSpawner
+var gulls: GullSpawner
+var tsunami: Tsunami
 
 
 func _initialize() -> void:
@@ -33,7 +37,11 @@ var forward_ok := 0
 func _run(want: int) -> void:
 	water = main.water
 	dino = main.dino
-	for n in [main, water, dino]:
+	controls = main.controls
+	spawner = main.obstacle_spawner
+	gulls = main.gull_spawner
+	tsunami = main.tsunami
+	for n in [main, controls, tsunami, spawner, gulls, water, dino]:
 		n.set_physics_process(false)
 
 	var impossible := 0
@@ -41,16 +49,16 @@ func _run(want: int) -> void:
 	var since_last := 0.0
 	var gaps: Array = []
 	while done < want:
-		var px_before: float = main._next_spawn
-		var last = main._obstacles.back() if main._obstacles.size() > 0 else null
+		var px_before: float = spawner.next_spawn_px
+		var last = spawner.obstacles.back() if spawner.obstacles.size() > 0 else null
 		_step(0.0)
 		since_last += dino.speed * DT
 		if main.game_over:
-			main._restart()
+			main.restart()
 			continue
-		if main._obstacles.is_empty() or main._obstacles.back() == last:
+		if spawner.obstacles.is_empty() or spawner.obstacles.back() == last:
 			continue
-		var o: Obstacle = main._obstacles.back()
+		var o: Obstacle = spawner.obstacles.back()
 		o.set_physics_process(false)
 		var info := _describe(o, since_last, px_before)
 		since_last = 0.0
@@ -66,7 +74,7 @@ func _run(want: int) -> void:
 		if plan.is_empty():
 			impossible += 1
 			print("IMPOSSIBLE  ", info)
-			main._restart()  # what a player would get: a wipeout, so start fresh
+			main.restart()  # what a player would get: a wipeout, so start fresh
 		else:
 			_play(plan, o, true)
 			gaps.append(info)
@@ -93,7 +101,7 @@ func _describe(o: Obstacle, since_last: float, _px: float) -> String:
 		since_last, o.size.x, o.size.y]
 
 
-## One physics tick in tree order: Main, Water, debris, Dino.
+## One physics tick in tree order: Main, Controls, Tsunami, spawners, Water, debris, Dino.
 func _step(tilt_dir: float) -> void:
 	Input.action_release("tilt_forward")
 	Input.action_release("tilt_back")
@@ -102,8 +110,14 @@ func _step(tilt_dir: float) -> void:
 	elif tilt_dir < 0.0:
 		Input.action_press("tilt_back")
 	main._physics_process(DT)
+	if not main.game_over:
+		controls._physics_process(DT)
+		tsunami._physics_process(DT)
+		spawner._physics_process(DT)
+	if not main.game_over:  # a cactus hit just now freezes the gulls too
+		gulls._physics_process(DT)
 	water._physics_process(DT)
-	for o in main._obstacles:
+	for o in spawner.obstacles:
 		if is_instance_valid(o):
 			o.set_physics_process(false)
 			o._physics_process(DT)
@@ -112,9 +126,9 @@ func _step(tilt_dir: float) -> void:
 
 ## Plan = [[frames, dir], ...]; the last entry holds until the target is passed. Returns true if cleared.
 func _play(plan: Array, target: Obstacle, keep_spawning: bool) -> bool:
-	var saved_spawn: float = main._next_spawn
+	var saved_spawn: float = spawner.next_spawn_px
 	if not keep_spawning:
-		main._next_spawn = INF
+		spawner.next_spawn_px = INF
 	var seg := 0
 	var left: int = plan[0][0]
 	var ok := false
@@ -130,7 +144,7 @@ func _play(plan: Array, target: Obstacle, keep_spawning: bool) -> bool:
 			ok = true
 			break
 	if not keep_spawning:
-		main._next_spawn = saved_spawn
+		spawner.next_spawn_px = saved_spawn
 	return ok
 
 
@@ -166,7 +180,7 @@ func _search(target: Obstacle) -> Array:
 
 func _snapshot() -> Dictionary:
 	var obs := []
-	for o in main._obstacles:
+	for o in spawner.obstacles:
 		if is_instance_valid(o):
 			obs.append([o, o.position, o.rotation])
 	return {
@@ -174,7 +188,7 @@ func _snapshot() -> Dictionary:
 		"scroll": water._scroll, "pscroll": water._prev_scroll, "time": water._time, "ptime": water._prev_time, "wspeed": water.speed,
 		"pos": dino.position, "vel": dino.velocity, "speed": dino.speed, "dtilt": dino.tilt, "rot": dino.rotation,
 		"on": dino.on_surface, "touch": dino._touching,
-		"tilt": main.tilt, "tv": main._tilt_vel, "dist": main.distance, "spawn": main._next_spawn, "obs": obs,
+		"tilt": controls.tilt, "tv": controls.tilt_vel, "dist": main.distance, "spawn": spawner.next_spawn_px, "obs": obs,
 	}
 
 
@@ -195,14 +209,14 @@ func _restore(s: Dictionary) -> void:
 	dino.on_surface = s.on
 	dino._touching = s.touch
 	dino.crashed = false
-	main.tilt = s.tilt
-	main._tilt_vel = s.tv
+	controls.tilt = s.tilt
+	controls.tilt_vel = s.tv
 	main.distance = s.dist
-	main._next_spawn = s.spawn
+	spawner.next_spawn_px = s.spawn
 	main.game_over = false
 	Engine.time_scale = 1.0
-	main._obstacles.clear()
+	spawner.obstacles.clear()
 	for e in s.obs:
 		e[0].position = e[1]
 		e[0].rotation = e[2]
-		main._obstacles.append(e[0])
+		spawner.obstacles.append(e[0])

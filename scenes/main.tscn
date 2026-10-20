@@ -1,26 +1,75 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene format=3 uid="uid://dbp6ilb4vdkge"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" uid="uid://82fndjrxp8hn" path="res://scripts/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://scenes/water.tscn" id="2_water"]
 [ext_resource type="PackedScene" path="res://scenes/dino.tscn" id="3_dino"]
+[ext_resource type="Script" path="res://scripts/controls.gd" id="4_controls"]
+[ext_resource type="Script" path="res://scripts/tsunami.gd" id="5_tsunami"]
+[ext_resource type="Script" path="res://scripts/obstacle_spawner.gd" id="6_obstacles"]
+[ext_resource type="Script" path="res://scripts/gull_spawner.gd" id="7_gulls"]
+[ext_resource type="Script" path="res://scripts/game_camera.gd" id="8_camera"]
+[ext_resource type="Script" path="res://scripts/hud.gd" id="9_hud"]
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Node2D" unique_id=1906895110]
 script = ExtResource("1_main")
 
-[node name="Water" parent="." instance=ExtResource("2_water")]
+[node name="Controls" type="Node" parent="." node_paths=PackedStringArray("water", "dino")]
+script = ExtResource("4_controls")
+water = NodePath("../Water")
+dino = NodePath("../Dino")
 
-[node name="Dino" parent="." instance=ExtResource("3_dino")]
+[node name="Tsunami" type="Node" parent="." node_paths=PackedStringArray("water", "dino")]
+script = ExtResource("5_tsunami")
+water = NodePath("../Water")
+dino = NodePath("../Dino")
 
-[node name="Camera2D" type="Camera2D" parent="."]
+[node name="ObstacleSpawner" type="Node" parent="." node_paths=PackedStringArray("water", "dino", "controls", "container")]
+script = ExtResource("6_obstacles")
+water = NodePath("../Water")
+dino = NodePath("../Dino")
+controls = NodePath("../Controls")
+container = NodePath("../Hazards")
+
+[node name="GullSpawner" type="Node" parent="." node_paths=PackedStringArray("water", "dino", "container")]
+script = ExtResource("7_gulls")
+water = NodePath("../Water")
+dino = NodePath("../Dino")
+container = NodePath("../Hazards")
+
+[node name="Water" parent="." unique_id=640107233 instance=ExtResource("2_water")]
+
+[node name="Hazards" type="Node2D" parent="."]
+
+[node name="Dino" parent="." unique_id=1696630509 node_paths=PackedStringArray("water") instance=ExtResource("3_dino")]
+water = NodePath("../Water")
+gravity = 500.0
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1122392271 node_paths=PackedStringArray("dino", "controls")]
 position = Vector2(320, 180)
 ignore_rotation = false
+script = ExtResource("8_camera")
+dino = NodePath("../Dino")
+controls = NodePath("../Controls")
 
-[node name="HUD" type="CanvasLayer" parent="."]
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1036609310]
+script = ExtResource("9_hud")
 
-[node name="Label" type="Label" parent="HUD"]
+[node name="Stats" type="Label" parent="HUD" unique_id=1165235424]
 offset_left = 8.0
 offset_top = 6.0
 offset_right = 420.0
 offset_bottom = 70.0
 theme_override_colors/font_color = Color(0.32549, 0.32549, 0.32549, 1)
 theme_override_font_sizes/font_size = 10
+
+[node name="Wipeout" type="Label" parent="HUD"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(0.32549, 0.32549, 0.32549, 1)
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 1
+vertical_alignment = 1

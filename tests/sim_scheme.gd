@@ -25,7 +25,7 @@ func _initialize() -> void:
 	release_s = float(args[2]) if args.size() > 2 else release_s
 	total_frames = int((float(args[3]) if args.size() > 3 else 20.0) * 60)
 	main = load("res://scenes/main.tscn").instantiate()
-	main.scheme = scheme
+	main.get_node("Controls").scheme = scheme
 	if args.size() > 4 and float(args[4]) >= 0.0:
 		main.get_node("Dino").stickiness = float(args[4])
 	root.add_child(main)
@@ -33,7 +33,7 @@ func _initialize() -> void:
 
 func _physics_process(delta: float) -> bool:
 	var t := frames * delta
-	var action := "surf" if main.scheme == 0 else "tilt_forward"  # A holds surf, B tilts forward
+	var action := "surf" if main.controls.scheme == 0 else "tilt_forward"  # A holds surf, B tilts forward
 	if fmod(t, hold_s + release_s) < hold_s:
 		Input.action_press(action)
 	else:

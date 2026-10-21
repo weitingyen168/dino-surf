@@ -1,18 +1,22 @@
 class_name Hud
 extends CanvasLayer
-## The stats line in the corner and the WIPEOUT screen.
+## The score in the top right (Chrome Dino style: best, then this run) and the WIPEOUT screen.
 
-@onready var _stats: Label = $Stats
+@onready var _score: Label = $Score
 @onready var _wipeout: Label = $Wipeout
 
 
-func show_stats(scheme_name: String, speed: float, distance: float, best: float, wipeouts: int, sliced: int) -> void:
-	_stats.text = "Scheme %s   (Space: bulge ahead, Tab: switch, R: reset, V: 3D / flat)\nSpeed %d   Distance %d   Best %d   Wipeouts %d   Sliced %d" % [
-		scheme_name, speed, distance, best, wipeouts, sliced]
+func show_score(score: float, best: float) -> void:
+	_score.text = "HI %05d  %05d" % [best, score]
 
 
-func set_wipeout(reason: String, distance: float, best: float) -> void:
-	_wipeout.text = "WIPEOUT\n%s\n\nDistance %d   Best %d\nPress any control to surf again" % [reason, distance, best]
+func set_wipeout(reason: String, score: float, best: float) -> void:
+	var record := "  NEW BEST!" if score >= best and score > 0.0 else ""
+	_wipeout.text = "WIPEOUT
+%s
+
+Score %d   Best %d%s
+Press any control to surf again" % [reason, score, best, record]
 
 
 func show_wipeout(on: bool) -> void:

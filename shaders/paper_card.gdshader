@@ -8,12 +8,14 @@ uniform vec4 paper : source_color = vec4(1.0);
 uniform vec4 edge : source_color = vec4(0.66, 0.66, 0.66, 1.0);
 uniform float border_px = 2.0;  // paper left around the art, in art pixels
 uniform bool is_edge = false;  // a thickness slice: solid edge colour
+uniform float ink_px = 0.0;  // a dark line this wide around the paper border, in art pixels; 0 = none
+uniform vec4 ink : source_color = vec4(0.17, 0.17, 0.17, 1.0);
 
 // Most art coverage in a ring `radius` art pixels around uv.
 float ring(vec2 uv, vec2 px, float radius) {
 	float a = 0.0;
-	for (int i = 0; i < 12; i++) {
-		float angle = float(i) * TAU / 12.0;
+	for (int i = 0; i < 8; i++) {
+		float angle = float(i) * TAU / 8.0;
 		a = max(a, texture(art, uv + vec2(cos(angle), sin(angle)) * px * radius).a);
 	}
 	return a;
@@ -32,9 +34,15 @@ void fragment() {
 	vec2 size = vec2(textureSize(art, 0));
 	vec2 px = 1.0 / size;
 	vec4 c = texture(art, pixel_uv(UV, size));
-	if (c.a < 0.5 && ring(UV, px, border_px) < 0.5 && ring(UV, px, border_px * 0.5) < 0.5) {
-		discard;
+	// Not art: paper if any art is within the border, the ink line just outside that, else nothing.
+	// Art pixels skip the rings entirely; wide borders also check halfway, so thin bits aren't missed.
+	bool inked = false;
+	if (c.a < 0.5 && ring(UV, px, border_px) < 0.5 && (border_px <= 3.0 || ring(UV, px, border_px * 0.5) < 0.5)) {
+		if (ink_px <= 0.0 || ring(UV, px, border_px + ink_px) < 0.5) {
+			discard;
+		}
+		inked = true;
 	}
 	// The layer renders onto a transparent background, so its colours come out premultiplied: ink on paper.
-	ALBEDO = is_edge ? edge.rgb : paper.rgb * (1.0 - c.a) + c.rgb;
+	ALBEDO = is_edge ? edge.rgb : inked ? ink.rgb : paper.rgb * (1.0 - c.a) + c.rgb;
 }

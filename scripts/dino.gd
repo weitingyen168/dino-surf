@@ -1,6 +1,6 @@
 class_name Dino
 extends Node2D
-## Placeholder surfer. It stays at home_x on screen while the ocean scrolls past at `speed`.
+## The surfer. It stays at home_x on screen while the ocean scrolls past at `speed`.
 ## Speed: gravity along the slope. Riding down a swell's face speeds it up, riding up one slows it,
 ## and the player tilting the world (`tilt`) adds to that slope: tip it forward and you speed up,
 ## tip it back and you slow down. Landing on a down-slope turns the fall into extra speed.
@@ -10,8 +10,18 @@ extends Node2D
 ## Landing is always safe; only debris ends a run.
 ## The node's origin is where the board touches the water.
 
+const DINO_RIDE := preload("res://art/dino/dino_ride_01.png")
+const DINO_SCARED := preload("res://art/dino/dino_scared_01.png")
+const BOARD_RIDE := preload("res://art/dino/board_ride_01.png")
+const BOARD_SCARED := preload("res://art/dino/board_scared_01.png")
+const ART_SCALE := 0.5  # the art is made at 2× its in-game size (View3D draws the dino's card at 2×)
+const BOARD_OFFSET := Vector2(-24.5, -12.0)  # top-left of the board art; it sits a little in the water
+const FEET_Y := -6.0  # where the dino's feet meet the board
+const BODY_X := 0.6  # the body's centre, as a fraction of the art's width (the tail sticks out behind)
+
 @export var water: Water
 @export var gravity: float = 600.0
+@export var scared_fall_speed: float = 250.0  # falling faster than this (px/s) pulls the scared face
 @export var home_x: float = 220.0
 
 @export_group("Speed")
@@ -58,6 +68,10 @@ var _slash_left := 0.0  # > 0 while spinning
 var _slash_cooldown := 0.0
 var _air_spun := false  # already spun since leaving the water: only one spin per jump
 var _refunded := false  # this spin hit something: no cooldown when it ends
+
+
+func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR  # the art rotates with the face; smooth, not jagged
 
 
 func reset() -> void:
@@ -255,19 +269,14 @@ func _process(_delta: float) -> void:
 
 
 func _draw() -> void:
-	var ink := Color("535353")
+	var board := Rect2(BOARD_OFFSET, BOARD_RIDE.get_size() * ART_SCALE)
 	if not crashed:
-		draw_line(Vector2(-18, -1), Vector2(18, -1), ink, 3.0)  # board
-	var c := 5.0 if crouching and not crashed else 0.0  # crouch: ready to leap
-	draw_rect(Rect2(-7, -26 + c, 14, 23 - c), ink)  # body
-	draw_rect(Rect2(-1, -32 + c, 14, 9), ink)  # head
-	if crashed:
-		draw_line(Vector2(7, -30), Vector2(10, -27), Color.WHITE, 1.0)  # x eyes
-		draw_line(Vector2(10, -30), Vector2(7, -27), Color.WHITE, 1.0)
-	else:
-		draw_rect(Rect2(7, -30 + c, 2, 2), Color.WHITE)  # eye
-	if not on_surface:
-		draw_rect(Rect2(-9, -18, 4, 2), ink)  # arm out for balance
+		draw_texture_rect(BOARD_RIDE, board, false)
+	var body := DINO_RIDE.get_size() * ART_SCALE
+	var squash := 0.85 if crouching and not crashed else 1.0  # crouch: ready to leap
+	var scared := crashed or (not on_surface and velocity.y > scared_fall_speed)
+	draw_texture_rect(DINO_SCARED if scared else DINO_RIDE,
+		Rect2(-body.x * BODY_X, FEET_Y - body.y * squash, body.x, body.y * squash), false)
 	if slashing():
 		# Blade trail: an arc behind the spin so it reads as a slash.
 		var done := 1.0 - _slash_left / spin_duration
@@ -277,7 +286,7 @@ func _draw() -> void:
 	draw_set_transform_matrix(get_global_transform().affine_inverse())
 	if crashed:
 		draw_set_transform_matrix(get_global_transform().affine_inverse() * Transform2D(_board_rot, _board_pos))
-		draw_line(Vector2(-18, -1), Vector2(18, -1), ink, 3.0)
+		draw_texture_rect(BOARD_SCARED, board, false)
 		draw_set_transform_matrix(get_global_transform().affine_inverse())
 	for d in _drops:
-		draw_rect(Rect2(d[0] - Vector2(1.5, 1.5), Vector2(3, 3)), ink)
+		draw_rect(Rect2(d[0] - Vector2(1.5, 1.5), Vector2(3, 3)), Color("6fa3dd"))

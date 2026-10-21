@@ -1,5 +1,6 @@
 extends Node2D
-## Runs a surf session: keeps score, ends the run on a wipeout and restarts it. Tab switches scheme, R resets.
+## Runs a surf session: keeps score (the distance surfed; the best is saved between sessions), ends the run on a
+## wipeout and restarts it. R resets.
 ## Everything else is its own node; tree order is tick order, so the input and spawning run before the water moves:
 ##   Controls         player input -> world tilt, water pushes, leap, spin (the control schemes live here)
 ##   Tsunami          the always-on hump behind the dino
@@ -11,7 +12,7 @@ extends Node2D
 ##   Dino             the surfer
 ##   Camera2D         follow, lean and shake
 ##   View3D           redraws all of the above as a 3D pop-up book (V: flat 2D view)
-##   HUD              stats and the WIPEOUT screen
+##   HUD              score, the WIPEOUT screen, and the start screen (HUD/Title) that holds the game paused
 
 @export var retry_delay: float = 0.8  # seconds after a wipeout before a press restarts, so a held button doesn't skip the screen
 
@@ -40,8 +41,14 @@ var game_over := false
 var _game_over_time := 0.0
 
 
+const SAVE_PATH := "user://dino_surf.cfg"  # on the web this lives in the browser's storage
+
+
 func _ready() -> void:
 	get_tree().physics_interpolation = true
+	var save := ConfigFile.new()
+	if save.load(SAVE_PATH) == OK:
+		best = save.get_value("score", "best", 0.0)
 	obstacle_spawner.dino_hit.connect(_lose)
 	obstacle_spawner.cactus_sliced.connect(_on_cactus_sliced)
 	gull_spawner.dino_hit.connect(_lose)
@@ -52,9 +59,6 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
-			KEY_TAB:
-				controls.next_scheme()
-				restart()
 			KEY_R:
 				restart()
 
@@ -73,7 +77,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _process(_delta: float) -> void:
-	hud.show_stats(controls.describe(), dino.speed, distance, best, wipeouts, sliced)
+	hud.show_score(distance, best)
 
 
 func _on_cactus_sliced() -> void:
@@ -94,6 +98,9 @@ func _lose(reason: String) -> void:
 	Engine.time_scale = crash_slowmo_scale
 	get_tree().create_timer(crash_slowmo_s, true, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
 	hud.set_wipeout(reason, distance, best)
+	var save := ConfigFile.new()
+	save.set_value("score", "best", best)
+	save.save(SAVE_PATH)
 
 
 func restart() -> void:

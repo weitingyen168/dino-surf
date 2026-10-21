@@ -1,10 +1,16 @@
 class_name Obstacle
 extends Node2D
-## Placeholder cactus, Chrome Dino style: a tall saguaro with arms, or a short stubby one.
+## Cactus, Chrome Dino style: a tall saguaro with arms, or a short stubby one, in the backdrop cacti's colours.
 ## Planted in the flooded desert floor: it stands still and upright while the swell rises and falls around it,
 ## so a crest can bury its foot and a trough shows more of it. It only moves left as the ocean scrolls.
 ## The node's origin is the calm waterline (Water.base_y) at its centre; `size` is the trunk (arms are decoration,
 ## not hit). The trunk carries on down to the seabed, so riding low in a trough still runs into it.
+
+const GREEN := Color("6a9a4e")  # the backdrop cacti's palette
+const SHADE := Color("3f6b4a")
+const FLOWER := Color("eab8de")
+const OUTLINE := Color("26402a")  # dark edge so it stands out against the sand
+const OUTLINE_PX := 2.0
 
 var water: Water
 var size := Vector2(12, 40)  # trunk width, trunk height measured from the calm waterline down by `sunk`
@@ -55,44 +61,52 @@ func _process(_delta: float) -> void:
 
 
 func _draw() -> void:
-	var ink := Color("535353")
-	var wet := Color("b4b4b4")  # the sunk part, seen through the water
 	var top := -size.y * (1.0 - sunk)
-	var deep := water.bottom_y - position.y
-	var waterline := minf(water.surface_y(position.x) - position.y, deep)
-	_draw_piece(_cut if sliced else top, deep, ink)  # whole cactus, or the stump
-	draw_rect(Rect2(-size.x / 2.0, waterline, size.x, deep - waterline), wet)
+	# Drawn down to the water only, so nothing shows through it. The hit box still reaches the seabed.
+	var waterline := water.surface_y(position.x) - position.y
+	var from := _cut if sliced else top
+	# Each piece twice: grown in the outline colour, then filled in.
+	for grow in [OUTLINE_PX, 0.0]:
+		if waterline > from:
+			_draw_piece(from, waterline, grow)  # whole cactus, or the stump
 	if sliced:
 		# Top half, flying off and spinning about the cut.
 		draw_set_transform(Vector2(0, _cut) + _top_off, _top_rot)
-		_draw_piece(top - _cut, 0.0, ink, _cut)
+		for grow in [OUTLINE_PX, 0.0]:
+			_draw_piece(top - _cut, 0.0, grow, _cut)
 		draw_set_transform(Vector2.ZERO)
 
 
 ## Draws the trunk from local y `from` (up) down to `to`, plus the arms attached in that stretch.
 ## `shift` moves everything up by that much, so the top half can be drawn around its own cut.
-func _draw_piece(from: float, to: float, ink: Color, shift: float = 0.0) -> void:
+## `grow` > 0 draws just the outline: every shape that much bigger, in the outline colour.
+func _draw_piece(from: float, to: float, grow: float, shift: float = 0.0) -> void:
+	var ink := OUTLINE if grow > 0.0 else GREEN
 	var top := -size.y * (1.0 - sunk)
 	var w := size.x
 	var is_top := absf(from + shift - top) < 0.01
 	var y0 := from + (w / 2.0 if is_top else 0.0)
-	draw_rect(Rect2(-w / 2.0, y0, w, to - y0), ink)
+	draw_rect(Rect2(-w / 2.0 - grow, y0 - (0.0 if is_top else grow), w + 2.0 * grow, to - y0 + (0.0 if is_top else grow)), ink)
+	if grow == 0.0:
+		draw_rect(Rect2(w / 2.0 - w * 0.3, y0, w * 0.3, to - y0), SHADE)  # shaded side
 	if is_top:
-		draw_circle(Vector2(0, y0), w / 2.0, ink)  # rounded top
+		draw_circle(Vector2(0, y0), w / 2.0 + grow, ink)  # rounded top
+		if grow == 0.0:
+			draw_rect(Rect2(-2.0, y0 - w / 2.0 - 3.0, 4.0, 4.0), FLOWER)
 	# Arms: an elbow out, then up, rounded at the tip. Each goes with the piece it's attached to.
 	var arm := maxf(w * 0.55, 5.0)
 	var lo := from + shift
 	var hi := to + shift
 	if arms >= 1 and top * 0.45 >= lo and top * 0.45 < hi:
-		_arm(Vector2(-w / 2.0, top * 0.45 - shift), -1.0, arm, -top * 0.3, ink)
+		_arm(Vector2(-w / 2.0, top * 0.45 - shift), -1.0, arm, -top * 0.3, ink, grow)
 	if arms >= 2 and top * 0.62 >= lo and top * 0.62 < hi:
-		_arm(Vector2(w / 2.0, top * 0.62 - shift), 1.0, arm, -top * 0.22, ink)
+		_arm(Vector2(w / 2.0, top * 0.62 - shift), 1.0, arm, -top * 0.22, ink, grow)
 
 
-func _arm(from: Vector2, side: float, thick: float, rise: float, ink: Color) -> void:
+func _arm(from: Vector2, side: float, thick: float, rise: float, ink: Color, grow: float) -> void:
 	var out := thick * 1.1
 	var x0 := from.x if side > 0 else from.x - out
-	draw_rect(Rect2(x0, from.y - thick / 2.0, out, thick), ink)  # elbow out from the trunk
+	draw_rect(Rect2(x0, from.y - thick / 2.0, out, thick).grow(grow), ink)  # elbow out from the trunk
 	var cx := from.x + side * (out - thick / 2.0)
-	draw_rect(Rect2(cx - thick / 2.0, from.y - rise, thick, rise), ink)  # forearm up
-	draw_circle(Vector2(cx, from.y - rise), thick / 2.0, ink)
+	draw_rect(Rect2(cx - thick / 2.0, from.y - rise, thick, rise).grow(grow), ink)  # forearm up
+	draw_circle(Vector2(cx, from.y - rise), thick / 2.0 + grow, ink)

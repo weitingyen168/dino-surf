@@ -51,6 +51,7 @@ var _spacing: float
 var _scroll := 0.0  # how far the ocean has scrolled, in px
 var _time := 0.0  # seconds since reset; the swells travel with it
 var _prev_time := 0.0
+var _drawn_scroll := 0.0  # the scroll the surface was last drawn at, between physics ticks
 var _fill: Polygon2D
 var _line: Line2D
 
@@ -63,11 +64,11 @@ func _ready() -> void:
 	_left.resize(point_count)
 	_right.resize(point_count)
 	_fill = Polygon2D.new()
-	_fill.color = Color("dcdcdc")
+	_fill.color = Color("85b9e8")  # the flat view's water; the 3D view textures it with the water art
 	add_child(_fill)
 	_line = Line2D.new()
 	_line.width = 2.0
-	_line.default_color = Color("535353")
+	_line.default_color = Color("6fa3dd")
 	add_child(_line)
 
 
@@ -121,6 +122,7 @@ func _process(_delta: float) -> void:
 	var f := Engine.get_physics_interpolation_fraction()
 	var sc := lerpf(_prev_scroll, _scroll, f)
 	var tm := lerpf(_prev_time, _time, f)
+	_drawn_scroll = sc
 	var pts := PackedVector2Array()
 	var deepest := 0.0
 	for i in point_count:
@@ -202,6 +204,11 @@ func next_crest(from: float, reach: float = 800.0) -> float:
 ## The surface as drawn this frame (smoothed between physics ticks), left to right in screen space. View3D extrudes it.
 func surface_points() -> PackedVector2Array:
 	return _line.points
+
+
+## The scroll that goes with surface_points(), so art laid along the surface moves with it.
+func drawn_scroll() -> float:
+	return _drawn_scroll
 
 
 ## How far the ocean has scrolled, in px. Screen x + scroll = world position.

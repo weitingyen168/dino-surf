@@ -22,8 +22,16 @@ signal cactus_sliced
 @export var plan_reach_px: float = 700.0  # how far past spawn_x to look for a spot
 @export var retry_spawn_px: float = 60.0  # no clearable spot in reach: look again after this far
 
+@export_group("Ramp")
+## Gaps start this many times wider, then shrink to end_gap_scale over ramp_px of surfing: an easy start
+## that fills up as the run goes on.
+@export var start_gap_scale: float = 2.5
+@export var end_gap_scale: float = 0.8
+@export var ramp_px: float = 36000.0  # about two minutes at a typical surfing speed
+
 var obstacles: Array[Obstacle] = []
 var next_spawn_px := 1500.0  # px to go until the next debris; reset() sets it to first_obstacle_px
+var travelled := 0.0  # px surfed this run
 
 
 func reset() -> void:
@@ -32,12 +40,14 @@ func reset() -> void:
 			o.queue_free()
 	obstacles.clear()
 	next_spawn_px = first_obstacle_px
+	travelled = 0.0
 
 
 func _physics_process(delta: float) -> void:
 	next_spawn_px -= water.speed * delta
+	travelled += water.speed * delta
 	if next_spawn_px <= 0.0:
-		next_spawn_px = randf_range(min_gap_px, max_gap_px) if _spawn() else retry_spawn_px
+		next_spawn_px = _gap() if _spawn() else retry_spawn_px
 	obstacles = obstacles.filter(func(o): return is_instance_valid(o))
 	var body := dino.hit_rect()
 	for o in obstacles:
@@ -52,6 +62,10 @@ func _physics_process(delta: float) -> void:
 			dino_hit.emit("Hit a cactus")
 			return
 
+
+## Distance to the next one: a random gap, scaled by how far into the ramp this run is.
+func _gap() -> float:
+	return randf_range(min_gap_px, max_gap_px) * lerpf(start_gap_scale, end_gap_scale, clampf(travelled / ramp_px, 0.0, 1.0))
 
 ## Returns false, spawning nothing, when no spot in reach can be cleared from the dino's current state.
 func _spawn() -> bool:

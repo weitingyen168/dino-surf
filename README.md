@@ -9,20 +9,32 @@ The Chrome Dino desert has flooded. You don't control the dino — you control t
 3. Clone this repo, open Godot, Import → pick `project.godot`.
 4. Press F5 to play.
 
-## Current prototype
+## How to play
 
-Two control schemes to playtest against each other:
+Surf as far as you can. The score (top right, Chrome Dino style) is the distance; your best is saved.
+Cacti and seagulls start sparse and get denser over about two minutes of surfing.
 
 | Key | Action |
 | --- | --- |
-| Space / Up / W / click / tap (hold) | Act |
-| Tab | Switch scheme |
-| R | Reset |
+| Left / Right (or hold either half of the screen) | Tilt the world: speed up / slow down; in the air, shift where you land |
+| Down, then Up | Leap |
+| X / Shift | Spin: slices a cactus or knocks a gull |
+| Space | Bulge the water ahead into a ramp |
+| R | Restart |
+| V | Switch between the 3D pop-up view and the flat 2D view |
 
-- **A — shape the wave:** holding raises the water just behind the dino.
-- **B — tilt the world:** holding tips gravity forward.
+## Publishing to itch.io
 
-Tuning values are exported on each node in `main.tscn` — tweak them in the Inspector.
+The `Web` export preset is set up for itch.io (single-threaded, so it runs without special server headers).
+
+1. Install the Godot 4.7.2 export templates once (Editor → Manage Export Templates), at least the web ones.
+2. Export: Project → Export → Web → Export Project, to `export/web/index.html`; or from the command line:
+   `Godot_v4.7.2-stable_win64_console.exe --headless --path . --export-release "Web" export/web/index.html`
+3. Zip the *contents* of `export/web/` (so `index.html` is at the top of the zip).
+4. On itch.io: Create new project → Kind of project: **HTML** → upload the zip → tick
+   **This file will be played in the browser** → Viewport dimensions **1280 × 720** → tick **Fullscreen button**.
+
+`export/` is git-ignored: upload builds, don't commit them.
 
 ## Code map
 
@@ -35,19 +47,31 @@ Tuning values are exported on each node in `main.tscn` — tweak them in the Ins
 | `Tsunami` | `tsunami.gd` | The always-on hump behind the dino |
 | `ObstacleSpawner` | `obstacle_spawner.gd` | Plants cacti (they stand still; the swell moves around them), checks slices and hits. Uses `flight_planner.gd` so every cactus is clearable |
 | `GullSpawner` | `gull_spawner.gd` | Sends in seagulls, checks knocks and hits |
-| `Background` | — | Pixel-art background sprites go here; in 3D they sit on the furthest card |
+| `Background` | `backdrop.gd` | Pixel-art desert layers (far mountains, mountains, ground, cacti), each a `Backdrop` that tiles and scrolls with parallax; in 3D each stands on its own card at its `depth` |
 | `Water` | `water.gd` | Spring-chain surface plus travelling swells |
 | `Hazards` | — | Holds the spawned cacti (`obstacle.gd`) and gulls (`seagull.gd`), drawn behind the dino |
 | `Dino` | `dino.gd` | Floating, surfing, leaping, spinning, crashing |
 | `Camera2D` | `game_camera.gd` | Follow, lean with the tilt, shake |
 | `View3D` | `view_3d.gd` | Redraws the 2D game as a 3D pop-up book: each layer on a paper card at its own depth, the water extruded into a slab. V toggles the flat view |
 | `HUD` | `hud.gd` | Stats line and the WIPEOUT screen |
+| `HUD/Title` | `title_screen.gd` | Start screen: the animated handheld (`art/ui/title_handheld_01.png`, made from the artist's GIF with `tools/gif_to_strip.py`) over the paused game; any key starts |
 
 ## 3D pop-up view
 
 The game logic is all 2D; `View3D` only changes how it looks. Each layer node under `Main` (`Background`, `Hazards`, `Dino`) is rendered into its own texture and shown on a paper card (white cut-out border, a few px of thickness) at its own depth, and the water's surface line is extruded along z into a slab the cards stand in. Cards further back are scaled up so they line up with the 2D game when the camera is at rest, so hit boxes still match what you see.
 
-- **Adding art:** put background pixel art under `Background`, cactus/gull art in their scripts (they live under `Hazards`), dino art under `Dino`. Anything drawn must be inside one of those layer nodes, or it shows up on every card.
+- **Adding art:** a new background layer is another `Backdrop` node under `Background` (set its texture and depth). Cactus/gull art goes in their scripts (they live under `Hazards`), dino art in `dino.gd`. Anything drawn must be inside one of those layer nodes, or it shows up on every card.
+- **Water:** the slab is textured with `art/backgrounds/water_01.png`, with `water_waves_01.png` as the foam along its front edge. Both are pinned to the surface at their waterline row, so the glints ride the waves.
+
+## Preparing art
+
+Artists export big (pixel art blown up 20×, drawn art on 3840² canvases). `tools/prepare_art.gd` turns those exports into the game-ready PNGs in `art/`: pixel art back to 1 px per art pixel, drawn art cropped and shrunk to 2× its in-game size. Re-run it after the art changes:
+
+```
+Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tools/prepare_art.gd -- "<artist folder>"
+```
+
+The file list (source → `art/` name) is at the top of the script.
 - **Tuning:** depths, camera pitch / FOV, paper border and thickness, and water colours are exported on `View3D`.
 
 ## Folders

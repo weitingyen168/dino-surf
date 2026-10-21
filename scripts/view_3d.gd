@@ -1,23 +1,31 @@
 class_name View3D
 extends Node3D
 ## Shows the 2D game as a 3D pop-up book. The game still plays entirely in 2D; this only redraws it.
-## Each 2D layer (Background, Hazards, Dino) renders into its own texture (a SubViewport sharing the game's 2D world)
-## shown on a paper card standing at that layer's depth: the same art, cut out with a paper border and a little
-## thickness. The water is the surface line extruded along z into a slab the cards stand in.
+## Each 2D layer is shown on a paper card standing at that layer's depth: the same art, cut out with a paper
+## border and a little thickness.
+##   Background  every Backdrop child gets its own card at its `depth`, far behind the water. A backdrop is just
+##               its art scrolling, so its card samples the art directly (cheap: no render target)
+##   Hazards     cacti and gulls, just behind the dino: rendered into a texture by a SubViewport sharing the
+##               game's 2D world
+##   Dino        the same, on a smaller card that follows the dino, at higher resolution for the hand-drawn art
+## The water is the surface line extruded along z into a slab the cards stand in, textured with the pixel water
+## art, with the foam strip along its front edge. It's slightly see-through, with a solid back wall, so you see
+## the cacti and the dino's legs a little way into it.
 ## Cards further back are scaled up so that, with the camera at rest, they line up with the 2D game exactly
 ## (so the hit boxes still match what you see); as the camera follows, leans and shakes, the depth shows as parallax.
-## Anything drawn must live under one of the layer nodes, or it shows up on every card.
-## Pixel art added under Background ends up on the furthest card, behind the water. V switches to the flat 2D view.
+## Anything drawn must live under one of the layer nodes, or it shows up on every card. V switches to the flat 2D view.
 
 const S := 0.01  # 3D units per 2D px
 # Visibility layer bits. Every node starts on BASE, so a layer's whole subtree follows its root's bit.
 const BASE := 1
-const BACKGROUND_BIT := 1 << 1
-const HAZARDS_BIT := 1 << 2
-const DINO_BIT := 1 << 3
-const WATER_BIT := 1 << 4  # drawn in 3D as the slab, never on a card
+const HAZARDS_BIT := 1 << 1
+const DINO_BIT := 1 << 2
+const WATER_BIT := 1 << 3  # drawn in 3D as the slab, never on a card
+const BACKGROUND_BIT := 1 << 4  # the backdrops' cards sample their art directly, so no viewport draws these
 
 const CARD_SHADER := preload("res://shaders/paper_card.gdshader")
+const BACKDROP_SHADER := preload("res://shaders/paper_backdrop.gdshader")
+const WATER_SHADER := preload("res://shaders/pixel_water.gdshader")
 
 @export var game_camera: GameCamera
 @export var water: Water
@@ -26,7 +34,6 @@ const CARD_SHADER := preload("res://shaders/paper_card.gdshader")
 @export var dino: Dino
 
 @export_group("Depth (px, + = toward the camera)")
-@export var background_z: float = -900.0
 @export var hazards_z: float = -10.0
 @export var dino_z: float = 10.0
 @export var water_front_z: float = 70.0
@@ -39,49 +46,90 @@ const CARD_SHADER := preload("res://shaders/paper_card.gdshader")
 @export_group("Paper")
 @export var paper_color: Color = Color.WHITE
 @export var edge_color: Color = Color("a8a8a8")
-@export var border_px: float = 2.0  # paper left around the art
-@export var thickness_px: int = 3  # edge slices behind each card, 1 px apart
-@export var card_size: Vector2i = Vector2i(1024, 768)  # texture px per card: the view plus room for lean, shake and pitch
+@export var border_px: float = 2.0  # paper left around the art, in world px
+@export var thickness_px: float = 2.0  # how far behind each card its edge slice sits
+@export var card_size: Vector2i = Vector2i(1024, 768)  # world px a full-view card covers: the view plus room for lean, shake and pitch
+@export var dino_card_size: Vector2i = Vector2i(384, 384)  # world px around the dino
+@export var dino_resolution: float = 2.0  # texture px per world px on the dino's card; the art is made at 2×
+@export var hazards_resolution: float = 2.0  # the same for the cacti and gulls (the gull art is made at 2×)
+@export var dino_border_px: float = 3.5  # the dino gets a wider paper border, so it stands out against the sand
+@export var dino_ink_px: float = 1.5  # and a dark line around that
+@export var ink_color: Color = Color("2b2b2b")
 
 @export_group("Water")
-@export var water_top_color: Color = Color("ebebeb")
-@export var water_front_color: Color = Color("dcdcdc")
-@export var water_line_color: Color = Color("535353")
-@export var water_line_px: float = 2.0
+@export var water_art: Texture2D = preload("res://art/backgrounds/water_01.png")
+@export var foam_art: Texture2D = preload("res://art/backgrounds/water_waves_01.png")
+@export var water_pixel_scale: float = 3.0  # world px per art pixel, same as the backdrops
+@export var waterline_row: float = 98.0  # art row of the waterline (the water and foam art share one frame)
+@export var foam_above_px: float = 24.0  # how far the foam strip reaches above / below the surface
+@export var foam_below_px: float = 54.0
+@export var top_depth: float = 0.35  # how quickly the top face fades to deeper water toward the back
+@export_range(0.0, 1.0) var water_opacity: float = 0.8  # front and top faces; the back wall stays solid
+
+
+class Backdrop3D:
+	var backdrop: Backdrop
+	var scale: float
+	var rows: Vector2  # world px from the art's top to its first drawn row, and past its last
+	var root: Node3D
+	var materials: Array[ShaderMaterial] = []
 
 
 class Card:
 	var node: CanvasItem
 	var z: float  # px
 	var scale: float  # how much bigger than 1:1, so it lines up at rest despite being further away
+	var size: Vector2  # world px covered
+	var resolution: float  # texture px per world px
+	var follow: Node2D  # centre on this node; null = wherever the camera looks
 	var viewport: SubViewport
 	var root: Node3D
+	var materials: Array[ShaderMaterial] = []
 
 
 var on := true
 var _camera: Camera3D
-var _rest_distance := 0.0  # px from the camera to the z = 0 plane
-var _rest_center := Vector2.ZERO  # the 2D view centre with the camera at rest; far cards scale about it
+var _rest_distance := 0.0  # px from the camera to what it looks at
+var _eye := Vector2.ZERO  # 2D position of the camera at rest; cards scale about it, so every depth lines up from there
+var _eye_z := 0.0  # px from the camera at rest to the z = 0 plane
 var _cards: Array[Card] = []
+var _backdrops: Array[Backdrop3D] = []
 var _water_mesh := ArrayMesh.new()
-var _water_material := StandardMaterial3D.new()
+var _water_indices := PackedInt32Array()  # the same strip of quads every frame
+var _water_materials: Array[ShaderMaterial] = []  # back, top, front, foam: drawn in this order, back to front
 
 
 func _ready() -> void:
 	var view_h := get_viewport().get_visible_rect().size.y / game_camera.zoom.y
 	_rest_distance = view_h / 2.0 / tan(deg_to_rad(fov_deg) / 2.0)
-	_rest_center = Vector2(game_camera.position.x, game_camera.rest_y)
+	var pitch := deg_to_rad(pitch_deg)
+	_eye = Vector2(game_camera.position.x, game_camera.rest_y - _rest_distance * sin(pitch))
+	_eye_z = _rest_distance * cos(pitch)
 
-	(get_parent() as CanvasItem).visibility_layer = BACKGROUND_BIT | HAZARDS_BIT | DINO_BIT | WATER_BIT
+	var deepest := 0.0
+	for b in background.get_children():
+		if b is Backdrop:
+			_add_backdrop(b)
+			deepest = minf(deepest, b.depth)
+	background.visibility_layer = BACKGROUND_BIT
+	_add_card(hazards, HAZARDS_BIT, hazards_z, card_size, hazards_resolution, null)
+	_add_card(dino, DINO_BIT, dino_z, dino_card_size, dino_resolution, dino)
+	for mat in _cards.back().materials:
+		mat.set_shader_parameter("border_px", dino_border_px * dino_resolution)
+		mat.set_shader_parameter("ink_px", dino_ink_px * dino_resolution)
+		mat.set_shader_parameter("ink", ink_color)
 	water.visibility_layer = WATER_BIT
-	_add_card(background, BACKGROUND_BIT, background_z)
-	_add_card(hazards, HAZARDS_BIT, hazards_z)
-	_add_card(dino, DINO_BIT, dino_z)
+	(get_parent() as CanvasItem).visibility_layer = BACKGROUND_BIT | HAZARDS_BIT | DINO_BIT | WATER_BIT
 
-	_water_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_water_material.vertex_color_use_as_albedo = true
-	_water_material.vertex_color_is_srgb = true
-	_water_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	for i in 4:
+		var mat := ShaderMaterial.new()
+		mat.shader = WATER_SHADER
+		mat.set_shader_parameter("art", foam_art if i == 3 else water_art)
+		mat.set_shader_parameter("pixel_scale", water_pixel_scale)
+		mat.set_shader_parameter("waterline_row", waterline_row)
+		mat.set_shader_parameter("solid", i < 3)
+		mat.set_shader_parameter("opacity", water_opacity if i in [1, 2] else 1.0)
+		_water_materials.append(mat)
 	var slab := MeshInstance3D.new()
 	slab.mesh = _water_mesh
 	slab.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # rebuilt every frame from the smoothed line
@@ -90,7 +138,7 @@ func _ready() -> void:
 	_camera = Camera3D.new()
 	_camera.fov = fov_deg
 	_camera.near = 1.0
-	_camera.far = (_rest_distance - background_z) * S * 2.0
+	_camera.far = (_eye_z - deepest) * S * 2.0
 	add_child(_camera)
 	_place_camera()
 	_camera.reset_physics_interpolation()
@@ -109,17 +157,62 @@ func _set_on(value: bool) -> void:
 	vp.disable_3d = not on
 	vp.canvas_cull_mask = BASE if on else 0xFFFFFFFF  # BASE alone still shows the HUD
 	_camera.current = on
+	for card in _cards:
+		card.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
 
 
-func _add_card(node: CanvasItem, bit: int, z: float) -> void:
+## A card at depth z is this many times bigger than 1:1, so that from the camera at rest it covers the same view.
+func _scale_at(z: float) -> float:
+	return (_eye_z - z) / _eye_z
+
+
+## A backdrop's card: a quad over just the rows its art uses, sampling the art itself as it scrolls.
+func _add_backdrop(b: Backdrop) -> void:
+	var card := Backdrop3D.new()
+	card.backdrop = b
+	card.scale = _scale_at(b.depth)
+	b.parallax = 1.0 / card.scale  # its on-screen speed, seen from the camera at that distance
+	var used := b.used_rows()
+	card.rows = Vector2(used.x - 1, used.y + 1) * b.pixel_scale  # a pixel of room for the paper border
+	card.root = Node3D.new()
+	card.root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # placed every frame from the smoothed camera
+	add_child(card.root)
+	var size := Vector2(card_size.x, card.rows.y - card.rows.x)
+	var quad := QuadMesh.new()
+	quad.size = size * card.scale * S
+	for is_edge in [false, true]:
+		var mat := ShaderMaterial.new()
+		mat.shader = BACKDROP_SHADER
+		mat.set_shader_parameter("art", b.texture)
+		mat.set_shader_parameter("paper", paper_color)
+		mat.set_shader_parameter("edge", edge_color)
+		mat.set_shader_parameter("border_art_px", border_px / b.pixel_scale)
+		mat.set_shader_parameter("pixel_scale", b.pixel_scale)
+		mat.set_shader_parameter("first_row", float(b.first_row))
+		mat.set_shader_parameter("end_row", float(b.end_row()))
+		mat.set_shader_parameter("card_size", size)
+		mat.set_shader_parameter("is_edge", is_edge)
+		card.materials.append(mat)
+		var slice := MeshInstance3D.new()
+		slice.mesh = quad
+		slice.material_override = mat
+		slice.position.z = -thickness_px * S if is_edge else 0.0  # the face, then the edge slice behind it
+		card.root.add_child(slice)
+	_backdrops.append(card)
+
+
+func _add_card(node: CanvasItem, bit: int, z: float, size: Vector2, resolution: float, follow: Node2D) -> void:
 	node.visibility_layer = bit
 	var card := Card.new()
 	card.node = node
 	card.z = z
-	card.scale = (_rest_distance - z) / _rest_distance
+	card.scale = _scale_at(z)
+	card.size = size
+	card.resolution = resolution
+	card.follow = follow
 
 	var vp := SubViewport.new()
-	vp.size = card_size
+	vp.size = Vector2i(size * resolution)
 	vp.transparent_bg = true
 	vp.disable_3d = true
 	vp.world_2d = get_viewport().world_2d  # draws the game's own 2D world, filtered to this layer
@@ -133,19 +226,20 @@ func _add_card(node: CanvasItem, bit: int, z: float) -> void:
 	add_child(root)
 	card.root = root
 	var quad := QuadMesh.new()
-	quad.size = Vector2(card_size) * card.scale * S
-	for i in thickness_px + 1:
+	quad.size = size * card.scale * S
+	for is_edge in [false, true]:
 		var mat := ShaderMaterial.new()
 		mat.shader = CARD_SHADER
 		mat.set_shader_parameter("art", vp.get_texture())
 		mat.set_shader_parameter("paper", paper_color)
 		mat.set_shader_parameter("edge", edge_color)
-		mat.set_shader_parameter("border_px", border_px)
-		mat.set_shader_parameter("is_edge", i > 0)
+		mat.set_shader_parameter("border_px", border_px * resolution)
+		mat.set_shader_parameter("is_edge", is_edge)
+		card.materials.append(mat)
 		var slice := MeshInstance3D.new()
 		slice.mesh = quad
 		slice.material_override = mat
-		slice.position.z = -i * S  # the face first, then the edge slices 1 px apart behind it
+		slice.position.z = -thickness_px * S if is_edge else 0.0  # the face, then the edge slice behind it
 		root.add_child(slice)
 	_cards.append(card)
 
@@ -167,62 +261,95 @@ func _process(_delta: float) -> void:
 	var cam := _camera.get_global_transform_interpolated()
 	for card in _cards:
 		_place_card(card, cam)
+	for card in _backdrops:
+		_place_backdrop(card, cam)
 	_build_water()
 
 
-## Points the card's texture at the part of the 2D world the camera can see at the card's depth, and moves the
-## card there. Snapped to whole px so the art doesn't shimmer.
-func _place_card(card: Card, cam: Transform3D) -> void:
-	var used := card.node != background or background.get_child_count() > 0  # no background art yet: skip its card
-	card.root.visible = used
-	card.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if used else SubViewport.UPDATE_DISABLED
-	if not used:
-		return
+## Where the camera's centre ray meets the plane at depth z, in that depth's 2D art coordinates.
+func _view_center(z: float, scale: float, cam: Transform3D) -> Vector2:
 	var forward := -cam.basis.z
-	var hit := cam.origin + forward * ((card.z * S - cam.origin.z) / forward.z)
-	var seen := _to_2d(hit)  # in the 3D scene, where the camera's centre ray meets the card
-	var center := _rest_center + (seen - _rest_center) / card.scale  # the same spot in the card's 2D art
-	var origin := (center - Vector2(card_size) / 2.0).round()
-	card.viewport.canvas_transform = Transform2D(0.0, -origin)
-	var art_center := origin + Vector2(card_size) / 2.0
-	card.root.position = _to_3d(_rest_center + (art_center - _rest_center) * card.scale, card.z)
+	var hit := cam.origin + forward * ((z * S - cam.origin.z) / forward.z)
+	return _eye + (_to_2d(hit) - _eye) / scale
 
 
-## The surface line extruded from water_back_z to water_front_z: a top face, and a front face down to the bottom
-## with the ink line along its top edge.
+## Points the card's texture at the part of the 2D world it should show, and moves the card there.
+## Snapped to whole texture px so the art doesn't shimmer.
+func _place_card(card: Card, cam: Transform3D) -> void:
+	var center := card.follow.position if card.follow else _view_center(card.z, card.scale, cam)
+	var origin := ((center - card.size / 2.0) * card.resolution).round() / card.resolution
+	card.viewport.canvas_transform = Transform2D(0.0, Vector2.ONE * card.resolution, 0.0, -origin * card.resolution)
+	var art_center := origin + card.size / 2.0
+	card.root.position = _to_3d(_eye + (art_center - _eye) * card.scale, card.z)
+
+
+## Centres the backdrop's card on the view sideways (up and down it spans just the art's rows) and tells the
+## shader where the scrolling art is under it.
+func _place_backdrop(card: Backdrop3D, cam: Transform3D) -> void:
+	var b := card.backdrop
+	var size := Vector2(card_size.x, card.rows.y - card.rows.x)
+	var origin := Vector2(_view_center(b.depth, card.scale, cam).x - size.x / 2.0, b.position.y + card.rows.x)
+	for mat in card.materials:
+		mat.set_shader_parameter("card_origin", origin)
+		mat.set_shader_parameter("art_origin", Vector2(b.drawn_x(), b.position.y))
+	card.root.position = _to_3d(_eye + (origin + size / 2.0 - _eye) * card.scale, b.depth)
+
+
+## The surface line extruded from water_back_z to water_front_z: a back wall and a front face down to the bottom,
+## a top face between them, and the foam strip along the front edge. UV = (x to tile along, px below the
+## surface) for the shader: the water body stays put sideways (it only rides the waves up and down), the foam
+## scrolls with the ocean.
 func _build_water() -> void:
 	var pts := water.surface_points()
-	if pts.size() < 2:
+	var n := pts.size()
+	if n < 2:
 		return
-	var verts := PackedVector3Array()
-	var colors := PackedColorArray()
-	for i in pts.size() - 1:
-		var a := pts[i]
-		var b := pts[i + 1]
-		var bottom := maxf(water.bottom_y, maxf(a.y, b.y) + 20.0)
-		_quad(verts, colors, water_top_color,
-			_to_3d(a, water_back_z), _to_3d(b, water_back_z), _to_3d(b, water_front_z), _to_3d(a, water_front_z))
-		_quad(verts, colors, water_front_color,
-			_to_3d(a, water_front_z), _to_3d(b, water_front_z),
-			_to_3d(Vector2(b.x, bottom), water_front_z), _to_3d(Vector2(a.x, bottom), water_front_z))
-		var line := Vector2(0.0, water_line_px)
-		var z := water_front_z + 0.5  # just in front of the face
-		_quad(verts, colors, water_line_color,
-			_to_3d(a - line / 2.0, z), _to_3d(b - line / 2.0, z), _to_3d(b + line / 2.0, z), _to_3d(a + line / 2.0, z))
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_COLOR] = colors
+	if _water_indices.size() != (n - 1) * 6:
+		# Each surface is two rows of n vertices (row 0 = 0..n-1, row 1 = n..2n-1), joined into quads.
+		_water_indices.resize((n - 1) * 6)
+		for i in n - 1:
+			_water_indices[i * 6] = i
+			_water_indices[i * 6 + 1] = i + 1
+			_water_indices[i * 6 + 2] = n + i + 1
+			_water_indices[i * 6 + 3] = i
+			_water_indices[i * 6 + 4] = n + i + 1
+			_water_indices[i * 6 + 5] = n + i
+	var scroll := water.drawn_scroll()
+	var back_depth := (water_front_z - water_back_z) * top_depth
+	var foam_z := water_front_z + 0.5  # just in front of the face
 	_water_mesh.clear_surfaces()
-	_water_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	_water_mesh.surface_set_material(0, _water_material)
-
-
-static func _quad(verts: PackedVector3Array, colors: PackedColorArray, color: Color,
-		a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
-	for v in [a, b, c, a, c, d]:
-		verts.append(v)
-		colors.append(color)
+	for surface in 4:  # back, top, front, foam
+		var verts := PackedVector3Array()
+		var uvs := PackedVector2Array()
+		verts.resize(n * 2)
+		uvs.resize(n * 2)
+		for i in n:
+			var p := pts[i]
+			match surface:
+				0, 2:
+					var z := water_back_z if surface == 0 else water_front_z
+					var bottom := maxf(water.bottom_y, p.y + 20.0)
+					verts[i] = _to_3d(p, z)
+					verts[n + i] = _to_3d(Vector2(p.x, bottom), z)
+					uvs[i] = Vector2(p.x, 0.0)
+					uvs[n + i] = Vector2(p.x, bottom - p.y)
+				1:
+					verts[i] = _to_3d(p, water_back_z)
+					verts[n + i] = _to_3d(p, water_front_z)
+					uvs[i] = Vector2(p.x, back_depth)
+					uvs[n + i] = Vector2(p.x, 0.0)
+				3:
+					verts[i] = _to_3d(p - Vector2(0.0, foam_above_px), foam_z)
+					verts[n + i] = _to_3d(p + Vector2(0.0, foam_below_px), foam_z)
+					uvs[i] = Vector2(p.x + scroll, -foam_above_px)
+					uvs[n + i] = Vector2(p.x + scroll, foam_below_px)
+		var arrays := []
+		arrays.resize(Mesh.ARRAY_MAX)
+		arrays[Mesh.ARRAY_VERTEX] = verts
+		arrays[Mesh.ARRAY_TEX_UV] = uvs
+		arrays[Mesh.ARRAY_INDEX] = _water_indices
+		_water_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+		_water_mesh.surface_set_material(surface, _water_materials[surface])
 
 
 ## 2D px (y down) at depth z px -> 3D units (y up).

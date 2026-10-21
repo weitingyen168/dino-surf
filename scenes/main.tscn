@@ -10,6 +10,25 @@
 [ext_resource type="Script" uid="uid://d225lanw7x73s" path="res://scripts/game_camera.gd" id="8_camera"]
 [ext_resource type="Script" uid="uid://c7chiji8vbh2e" path="res://scripts/hud.gd" id="9_hud"]
 [ext_resource type="Script" uid="uid://rupydxmg1yfh" path="res://scripts/view_3d.gd" id="10_view3d"]
+[ext_resource type="Script" path="res://scripts/backdrop.gd" id="11_backdrop"]
+[ext_resource type="Script" path="res://scripts/title_screen.gd" id="17_title"]
+[ext_resource type="Texture2D" path="res://art/backgrounds/desert_far_mountains_01.png" id="12_far"]
+[ext_resource type="Texture2D" path="res://art/backgrounds/desert_mountains_01.png" id="13_mountains"]
+[ext_resource type="Texture2D" path="res://art/backgrounds/desert_ground_01.png" id="14_ground"]
+[ext_resource type="Texture2D" path="res://art/backgrounds/desert_cacti_01.png" id="15_cacti"]
+[ext_resource type="Texture2D" path="res://art/backgrounds/desert_hill_cacti_01.png" id="16_hill_cacti"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_wipeout"]
+content_margin_left = 20.0
+content_margin_top = 10.0
+content_margin_right = 20.0
+content_margin_bottom = 10.0
+bg_color = Color(0.13, 0.13, 0.13, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.97, 0.97, 0.97, 1)
 
 [node name="Main" type="Node2D" unique_id=1906895110]
 script = ExtResource("1_main")
@@ -39,6 +58,43 @@ container = NodePath("../Hazards")
 
 [node name="Background" type="Node2D" parent="." unique_id=923984213]
 
+[node name="FarMountains" type="Node2D" parent="Background" node_paths=PackedStringArray("water")]
+position = Vector2(0, -140)
+script = ExtResource("11_backdrop")
+texture = ExtResource("12_far")
+water = NodePath("../../Water")
+depth = -2400.0
+
+[node name="Mountains" type="Node2D" parent="Background" node_paths=PackedStringArray("water")]
+position = Vector2(0, -140)
+script = ExtResource("11_backdrop")
+texture = ExtResource("13_mountains")
+water = NodePath("../../Water")
+depth = -1500.0
+
+[node name="HillCacti" type="Node2D" parent="Background" node_paths=PackedStringArray("water")]
+position = Vector2(0, -140)
+script = ExtResource("11_backdrop")
+texture = ExtResource("16_hill_cacti")
+water = NodePath("../../Water")
+depth = -1490.0
+
+[node name="Ground" type="Node2D" parent="Background" node_paths=PackedStringArray("water")]
+position = Vector2(0, -140)
+script = ExtResource("11_backdrop")
+texture = ExtResource("14_ground")
+water = NodePath("../../Water")
+depth = -800.0
+
+
+[node name="Cacti" type="Node2D" parent="Background" node_paths=PackedStringArray("water")]
+position = Vector2(0, -195)
+script = ExtResource("11_backdrop")
+texture = ExtResource("15_cacti")
+water = NodePath("../../Water")
+depth = -760.0
+first_row = 116
+
 [node name="Water" parent="." unique_id=640107233 instance=ExtResource("2_water")]
 border_color = Color(0.13507405, 0.36343127, 0.96967655, 1)
 
@@ -62,29 +118,43 @@ water = NodePath("../Water")
 background = NodePath("../Background")
 hazards = NodePath("../Hazards")
 dino = NodePath("../Dino")
-water_top_color = Color(0.13333334, 0.3647059, 0.96862745, 1)
-water_front_color = Color(2.5027991e-06, 0, 0.7050902, 1)
-water_line_color = Color(0, 0, 0.5019608, 1)
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1036609310]
 script = ExtResource("9_hud")
 
-[node name="Stats" type="Label" parent="HUD" unique_id=1165235424]
-offset_left = 8.0
-offset_top = 6.0
-offset_right = 420.0
-offset_bottom = 70.0
+[node name="Score" type="Label" parent="HUD" unique_id=1165235424]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -320.0
+offset_top = 8.0
+offset_right = -12.0
+offset_bottom = 32.0
+grow_horizontal = 0
 theme_override_colors/font_color = Color(0.32549, 0.32549, 0.32549, 1)
-theme_override_font_sizes/font_size = 10
+theme_override_font_sizes/font_size = 16
+horizontal_alignment = 2
 
 [node name="Wipeout" type="Label" parent="HUD" unique_id=445050992]
 visible = false
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+theme_override_styles/normal = SubResource("StyleBoxFlat_wipeout")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Title" type="Control" parent="HUD"]
+layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_colors/font_color = Color(0.32549, 0.32549, 0.32549, 1)
-theme_override_font_sizes/font_size = 16
-horizontal_alignment = 1
-vertical_alignment = 1
+script = ExtResource("17_title")

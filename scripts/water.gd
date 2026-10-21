@@ -13,6 +13,10 @@ extends Node2D
 @export var bottom_y: float = 640.0  # well below the screen, so the fill still covers it when the camera moves
 @export var max_height: float = 140.0
 
+@export_group("appearance")
+@export var fill_color:Color = Color.NAVY_BLUE
+@export var border_color:Color = Color.DARK_BLUE
+
 @export_group("Springs")
 @export var stiffness: float = 30.0  # pull back toward rest height
 @export var damping: float = 4.0
@@ -64,11 +68,11 @@ func _ready() -> void:
 	_left.resize(point_count)
 	_right.resize(point_count)
 	_fill = Polygon2D.new()
-	_fill.color = Color("85b9e8")  # the flat view's water; the 3D view textures it with the water art
+	_fill.color = fill_color
 	add_child(_fill)
 	_line = Line2D.new()
 	_line.width = 2.0
-	_line.default_color = Color("6fa3dd")
+	_line.default_color = border_color
 	add_child(_line)
 
 

@@ -7,7 +7,7 @@ extends CanvasLayer
 
 
 func show_stats(scheme_name: String, speed: float, distance: float, best: float, wipeouts: int, sliced: int) -> void:
-	_stats.text = "Scheme %s   (Space: bulge ahead, Tab: switch, R: reset)\nSpeed %d   Distance %d   Best %d   Wipeouts %d   Sliced %d" % [
+	_stats.text = "Scheme %s   (Space: bulge ahead, Tab: switch, R: reset, V: 3D / flat)\nSpeed %d   Distance %d   Best %d   Wipeouts %d   Sliced %d" % [
 		scheme_name, speed, distance, best, wipeouts, sliced]
 
 

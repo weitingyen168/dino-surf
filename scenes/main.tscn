@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://scripts/gull_spawner.gd" id="7_gulls"]
 [ext_resource type="Script" path="res://scripts/game_camera.gd" id="8_camera"]
 [ext_resource type="Script" path="res://scripts/hud.gd" id="9_hud"]
+[ext_resource type="Script" path="res://scripts/view_3d.gd" id="10_view3d"]
 
 [node name="Main" type="Node2D" unique_id=1906895110]
 script = ExtResource("1_main")
@@ -36,6 +37,8 @@ water = NodePath("../Water")
 dino = NodePath("../Dino")
 container = NodePath("../Hazards")
 
+[node name="Background" type="Node2D" parent="."]
+
 [node name="Water" parent="." unique_id=640107233 instance=ExtResource("2_water")]
 
 [node name="Hazards" type="Node2D" parent="."]
@@ -50,6 +53,14 @@ ignore_rotation = false
 script = ExtResource("8_camera")
 dino = NodePath("../Dino")
 controls = NodePath("../Controls")
+
+[node name="View3D" type="Node3D" parent="." node_paths=PackedStringArray("game_camera", "water", "background", "hazards", "dino")]
+script = ExtResource("10_view3d")
+game_camera = NodePath("../Camera2D")
+water = NodePath("../Water")
+background = NodePath("../Background")
+hazards = NodePath("../Hazards")
+dino = NodePath("../Dino")
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1036609310]
 script = ExtResource("9_hud")

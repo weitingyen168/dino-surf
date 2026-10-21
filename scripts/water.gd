@@ -199,6 +199,11 @@ func next_crest(from: float, reach: float = 800.0) -> float:
 	return from
 
 
+## The surface as drawn this frame (smoothed between physics ticks), left to right in screen space. View3D extrudes it.
+func surface_points() -> PackedVector2Array:
+	return _line.points
+
+
 ## How far the ocean has scrolled, in px. Screen x + scroll = world position.
 func scroll() -> float:
 	return _scroll

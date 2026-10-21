@@ -1,6 +1,6 @@
 class_name ObstacleSpawner
 extends Node
-## Floats cacti in from the right edge, only where the player can actually clear them (see FlightPlanner),
+## Plants cacti in from the right edge, only where the player can actually clear them (see FlightPlanner),
 ## and checks the dino against them: a spin slices one (`cactus_sliced`), a body hit ends the run (`dino_hit`).
 ## Spawned cacti go into `container`, which sits before the Dino in the tree so they draw behind it.
 
@@ -49,7 +49,7 @@ func _physics_process(delta: float) -> void:
 			cactus_sliced.emit()
 			continue
 		if body.intersects(o.hit_rect()):
-			dino_hit.emit("Hit a floating cactus")
+			dino_hit.emit("Hit a cactus")
 			return
 
 
@@ -57,7 +57,7 @@ func _physics_process(delta: float) -> void:
 func _spawn() -> bool:
 	var o := Obstacle.new()
 	o.water = water
-	# Floating cacti: tall saguaros with arms, or short stubby ones. A real leap or flight needed to clear them.
+	# Cacti: tall saguaros with arms, or short stubby ones. A real leap or flight needed to clear them.
 	if randf() < 0.6:
 		o.size = Vector2(randf_range(12, 16), randf_range(120, 150))
 		o.arms = 2 if randf() < 0.6 else 1
@@ -67,7 +67,7 @@ func _spawn() -> bool:
 	o.sunk = 0.15
 	# Sit it under a flight the player can actually make, so the answer is "hit that crest fast and fly over".
 	var spots := FlightPlanner.clearable_spots(dino, water, controls, spawn_x, plan_reach_px,
-		o.size.x, o.size.y * (1.0 - o.sunk) + clear_margin_px)
+		o.size.x, water.base_y - o.size.y * (1.0 - o.sunk) - clear_margin_px)
 	var x: float
 	if not spots.is_empty():
 		x = spots.pick_random() - water.scroll()
@@ -76,8 +76,7 @@ func _spawn() -> bool:
 	else:
 		o.free()
 		return false
-	o.rotation = water.slope_angle(x) * o.lean
-	o.position = Vector2(x, water.surface_y(x))
+	o.position = Vector2(x, water.base_y)  # planted at the calm waterline; the swell moves around it
 	container.add_child(o)
 	obstacles.append(o)
 	return true

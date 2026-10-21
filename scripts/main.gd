@@ -3,12 +3,14 @@ extends Node2D
 ## Everything else is its own node; tree order is tick order, so the input and spawning run before the water moves:
 ##   Controls         player input -> world tilt, water pushes, leap, spin (the control schemes live here)
 ##   Tsunami          the always-on hump behind the dino
-##   ObstacleSpawner  floats in cacti the player can clear, reports slices and hits
+##   ObstacleSpawner  plants cacti the player can clear, reports slices and hits
 ##   GullSpawner      sends in seagulls, reports knocks and hits
+##   Background       pixel art behind everything (the furthest card in 3D)
 ##   Water            the ocean surface
 ##   Hazards          holds the spawned cacti and gulls, drawn behind the dino
 ##   Dino             the surfer
 ##   Camera2D         follow, lean and shake
+##   View3D           redraws all of the above as a 3D pop-up book (V: flat 2D view)
 ##   HUD              stats and the WIPEOUT screen
 
 @export var retry_delay: float = 0.8  # seconds after a wipeout before a press restarts, so a held button doesn't skip the screen

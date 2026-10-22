@@ -2,14 +2,14 @@ class_name Dino
 extends Node2D
 ## The surfer. It stays at home_x on screen while the ocean scrolls past at `speed`.
 ## Speed: gravity along the slope. Riding down a swell's face speeds it up, riding up one slows it,
-## and the player tilting the world (`tilt`) adds to that slope: tip it forward and you speed up,
-## tip it back and you slow down. Landing on a down-slope turns the fall into extra speed.
+## and landing on a down-slope turns the fall into extra speed (but not a dive's: see _land).
 ## Height: a floating body — gravity pulls it down; in the water, buoyancy pushes it up and drag
 ## carries it with the surface. Nothing scripts a jump: going over a crest fast enough means the
 ## surface drops away faster than gravity can follow, so it flies.
 ## Landing is always safe; only debris ends a run.
 ## The node's origin is where the board touches the water.
 
+signal spin_missed  # a spin ended without hitting anything
 signal spun  # a spin attack started (in the air; the spin button's hop off the water doesn't count)
 
 const DINO_RIDE := preload("res://art/dino/dino_ride_01.png")
@@ -36,13 +36,12 @@ const BODY_X := 0.6  # the body's centre, as a fraction of the art's width (the 
 @export var start_speed: float = 220.0
 @export var min_speed: float = 100.0
 @export var max_speed: float = 650.0
-@export var slope_gain: float = 1.0  # how much riding down / up a slope (water + tilt) speeds up / slows down
+@export var slope_gain: float = 1.0  # how much riding down / up a slope speeds up / slows down
 @export var water_friction: float = 0.12  # per second while on the water, so speed settles if you do nothing
 
 @export_group("Leap")
-@export var leap_speed: float = 360.0  # upward kick of a leap (scheme C); height is about leap_speed² / (2 × gravity)
+@export var leap_speed: float = 360.0  # upward kick of a leap; height is about leap_speed² / (2 × gravity)
 @export var coyote_s: float = 0.12  # a leap still works this long after leaving the water
-@export var air_control: float = 400.0  # px/s² the ocean speeds up / slows down while you steer in the air
 @export var dive_force: float = 1400.0  # px/s² extra pull down while Down is held: a fast fall in the air
 
 @export_group("Spin slice")
@@ -59,10 +58,8 @@ const BODY_X := 0.6  # the body's centre, as a fraction of the art's width (the 
 
 var velocity := Vector2.ZERO
 var speed := 220.0
-var tilt := 0.0  # world tilt in radians, + = tipped down toward the direction of travel; set by Main
 var on_surface := true
 var crashed := false
-var air_input := 0.0  # -1..1, steering in the air (scheme C); set by Main
 var crouching := false  # holding Down: ready to leap, and pulled down by dive_force; set by Main
 var _air_time := 0.0
 
@@ -77,6 +74,7 @@ var _slash_left := 0.0  # > 0 while spinning
 var _slash_cooldown := 0.0
 var _air_spun := false  # already spun since leaving the water: only one spin per jump
 var _refunded := false  # this spin hit something: no cooldown when it ends
+var _takeoff := false  # this spin came with a leap: a free one, it doesn't use up the jump's spin
 var _panic := false  # the last spin hit nothing: scared face and red board until back on the water
 
 
@@ -92,12 +90,10 @@ func _ready() -> void:
 func reset() -> void:
 	velocity = Vector2.ZERO
 	speed = start_speed
-	tilt = 0.0
 	on_surface = true
 	_touching = true
 	crashed = false
 	crouching = false
-	air_input = 0.0
 	_air_time = 0.0
 	_splashed = false
 	_drops.clear()
@@ -106,6 +102,7 @@ func reset() -> void:
 	_air_spun = false
 	_refunded = false
 	_panic = false
+	_takeoff = false
 	rotation = 0.0
 	position = Vector2(home_x, water.surface_y(home_x))
 	reset_physics_interpolation()  # teleport, don't slide from where it wiped out
@@ -116,12 +113,13 @@ func hit_rect() -> Rect2:
 	return Rect2(position + Vector2(-14, -30), Vector2(26, 30))
 
 
-## The spin button (scheme D): the board spins under the dino (slashing, so anything it touches is cut or knocked
-## away rather than hitting it) and the dino kicks straight up by spin_lift. Pressed on the water it hops off and
+## The spin (Up): the board spins under the dino (slashing, so anything it touches is cut or knocked
+## away rather than hitting it) and the dino kicks straight up by spin_lift. A `takeoff` spin comes free with a
+## Down-then-Up leap: the leap is the lift, it doesn't use up the jump's spin, and missing with it costs nothing. Pressed on the water it hops off and
 ## spins at once, so the protection starts on the press. One spin per jump; a spin that hits nothing leaves the
 ## dino panicked (scared face, red board) until it lands. Returns false while crashed, cooling down, or already
 ## spun on this jump.
-func spin() -> bool:
+func spin(takeoff: bool = false) -> bool:
 	if crashed or _slash_left > 0.0 or _slash_cooldown > 0.0 or (_air_spun and not on_surface):
 		return false
 	if on_surface:
@@ -129,7 +127,10 @@ func spin() -> bool:
 		on_surface = false
 		_touching = false
 	_slash_left = spin_duration
+	_takeoff = takeoff
 	spun.emit()
+	if takeoff:
+		return true
 	if spin_lift > 0.0:
 		velocity.y = minf(velocity.y, 0.0) - spin_lift  # straight up: cancel any fall, then kick
 	_air_spun = true
@@ -198,16 +199,13 @@ func _float(delta: float) -> void:
 		var rel_vy := velocity.y - water.surface_velocity_y(position.x)
 		accel -= gravity + buoyancy * depth + water_drag * rel_vy
 		_touching = true
-		# Gravity along the face, with the world's tilt added: downhill speeds you up, uphill slows you down.
-		var downhill := slope + tilt
-		speed += gravity * sin(downhill) * cos(downhill) * slope_gain * delta
+		# Gravity along the face: downhill speeds you up, uphill slows you down.
+		speed += gravity * sin(slope) * cos(slope) * slope_gain * delta
 		speed -= speed * water_friction * delta
 	elif _touching and depth > -stick_range:
 		accel += stickiness  # surface tension: a gentle lift-off gets pulled back down
 	else:
 		_touching = false
-	if depth < 0.0:
-		speed += air_control * air_input * delta  # steering in the air moves the whole ocean under you
 	speed = clampf(speed, min_speed, max_speed)
 	if crouching:
 		accel += dive_force  # on the water buoyancy takes most of it; in the air it's a fast fall
@@ -227,19 +225,26 @@ func _float(delta: float) -> void:
 	if _slash_left > 0.0:
 		_slash_left -= delta
 		if _slash_left <= 0.0:
-			_slash_cooldown = 0.0 if _refunded else spin_cooldown
-			_panic = not _refunded  # whiffed: nothing to cut, and no spin left until the water
+			var missed := not _refunded and not _takeoff
+			_slash_cooldown = spin_cooldown if missed else 0.0
+			_panic = missed  # whiffed: nothing to cut, and no spin left until the water
+			if missed:
+				spin_missed.emit()
 			_refunded = false
+			_takeoff = false
 	else:
 		_slash_cooldown = maxf(_slash_cooldown - delta, 0.0)
 	rotation = lerp_angle(rotation, target, (12.0 if on_surface else 4.0) * delta)
 
 
 ## Touchdown: keep the part of the motion that runs along the face. Coming down onto a
-## down-slope turns the fall into speed; slamming into an up-slope costs speed.
+## down-slope turns the fall into speed; slamming into an up-slope costs speed. A dive (Down held) is for getting
+## down, not for going faster, so it never adds speed.
 func _land(slope: float) -> void:
 	var along := Vector2.from_angle(slope)
 	var kept := Vector2(speed, velocity.y).dot(along) * along.x
+	if crouching:
+		kept = minf(kept, speed)
 	speed = clampf(maxf(kept, min_speed), min_speed, max_speed)
 
 

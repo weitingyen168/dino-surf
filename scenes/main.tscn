@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://scripts/backdrop.gd" id="11_backdrop"]
 [ext_resource type="Script" path="res://scripts/title_screen.gd" id="17_title"]
 [ext_resource type="Script" path="res://scripts/sounds.gd" id="18_sounds"]
+[ext_resource type="Script" path="res://scripts/invert_screen.gd" id="19_invert"]
 [ext_resource type="Texture2D" path="res://art/backgrounds/desert_far_mountains_01.png" id="12_far"]
 [ext_resource type="Texture2D" path="res://art/backgrounds/desert_mountains_01.png" id="13_mountains"]
 [ext_resource type="Texture2D" path="res://art/backgrounds/desert_ground_01.png" id="14_ground"]
@@ -44,11 +45,10 @@ script = ExtResource("5_tsunami")
 water = NodePath("../Water")
 dino = NodePath("../Dino")
 
-[node name="ObstacleSpawner" type="Node" parent="." unique_id=438935970 node_paths=PackedStringArray("water", "dino", "controls", "container")]
+[node name="ObstacleSpawner" type="Node" parent="." unique_id=438935970 node_paths=PackedStringArray("water", "dino", "container")]
 script = ExtResource("6_obstacles")
 water = NodePath("../Water")
 dino = NodePath("../Dino")
-controls = NodePath("../Controls")
 container = NodePath("../Hazards")
 
 [node name="GullSpawner" type="Node" parent="." unique_id=1607006575 node_paths=PackedStringArray("water", "dino", "container")]
@@ -105,12 +105,11 @@ border_color = Color(0.13507405, 0.36343127, 0.96967655, 1)
 water = NodePath("../Water")
 gravity = 500.0
 
-[node name="Camera2D" type="Camera2D" parent="." unique_id=1122392271 node_paths=PackedStringArray("dino", "controls")]
+[node name="Camera2D" type="Camera2D" parent="." unique_id=1122392271 node_paths=PackedStringArray("dino")]
 position = Vector2(320, 180)
 ignore_rotation = false
 script = ExtResource("8_camera")
 dino = NodePath("../Dino")
-controls = NodePath("../Controls")
 
 [node name="View3D" type="Node3D" parent="." unique_id=71156811 node_paths=PackedStringArray("game_camera", "water", "background", "hazards", "dino")]
 script = ExtResource("10_view3d")
@@ -123,7 +122,11 @@ dino = NodePath("../Dino")
 [node name="Sounds" type="Node" parent="."]
 script = ExtResource("18_sounds")
 
+[node name="Invert" type="CanvasLayer" parent="."]
+script = ExtResource("19_invert")
+
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1036609310]
+layer = 2
 script = ExtResource("9_hud")
 
 [node name="Score" type="Label" parent="HUD" unique_id=1165235424]
@@ -137,6 +140,32 @@ offset_bottom = 32.0
 grow_horizontal = 0
 theme_override_colors/font_color = Color(0.32549, 0.32549, 0.32549, 1)
 theme_override_font_sizes/font_size = 16
+horizontal_alignment = 2
+
+[node name="BigCombo" type="Label" parent="HUD"]
+visible = false
+offset_left = 14.0
+offset_top = 18.0
+offset_right = 254.0
+offset_bottom = 58.0
+rotation = -0.14
+theme_override_colors/font_color = Color(1, 0.8, 0.2, 1)
+theme_override_colors/font_outline_color = Color(0.15, 0.1, 0.05, 1)
+theme_override_constants/outline_size = 8
+theme_override_font_sizes/font_size = 32
+
+[node name="Combo" type="Label" parent="HUD"]
+visible = false
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -320.0
+offset_top = 32.0
+offset_right = -12.0
+offset_bottom = 48.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(0.32549, 0.32549, 0.32549, 1)
+theme_override_font_sizes/font_size = 8
 horizontal_alignment = 2
 
 [node name="Wipeout" type="Label" parent="HUD" unique_id=445050992]

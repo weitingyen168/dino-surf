@@ -1,7 +1,7 @@
 class_name GullSpawner
 extends Node
 ## Sends seagulls in from the right, more of them the higher up (height_bias), plus a second stream of gulls high
-## up top, and checks the dino against them: a spin knocks one away (`gull_knocked`), a body hit ends the run
+## up top, and checks the dino against them: a spin kills one on the spot (`gull_knocked`), a body hit ends the run
 ## (`dino_hit`).
 ## Spawned gulls go into `container`, which sits before the Dino in the tree so they draw behind it.
 
@@ -54,10 +54,8 @@ func _physics_process(delta: float) -> void:
 	gulls = gulls.filter(func(g): return is_instance_valid(g))
 	var body := dino.hit_rect()
 	for g in gulls:
-		if g.knocked:
-			continue
 		if dino.slashing() and dino.slash_rect().intersects(g.hit_rect()):
-			g.knock()
+			g.kill()
 			dino.refund_spin()
 			gull_knocked.emit()
 			continue

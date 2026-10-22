@@ -25,6 +25,7 @@ const BACKGROUND_BIT := 1 << 4  # the backdrops' cards sample their art directly
 
 const CARD_SHADER := preload("res://shaders/paper_card.gdshader")
 const BACKDROP_SHADER := preload("res://shaders/paper_backdrop.gdshader")
+const SHADOW_SHADER := preload("res://shaders/soft_shadow.gdshader")
 const WATER_SHADER := preload("res://shaders/pixel_water.gdshader")
 
 @export var game_camera: GameCamera
@@ -36,12 +37,12 @@ const WATER_SHADER := preload("res://shaders/pixel_water.gdshader")
 @export_group("Depth (px, + = toward the camera)")
 @export var hazards_z: float = -10.0
 @export var dino_z: float = 10.0
-@export var water_front_z: float = 70.0
-@export var water_back_z: float = -70.0
+@export var water_front_z: float = 60.0
+@export var water_back_z: float = -60.0
 
 @export_group("Camera")
 @export var fov_deg: float = 30.0  # narrower = flatter, wider = more depth
-@export var pitch_deg: float = 12.0  # looks down a little, so the top of the water shows
+@export var pitch_deg: float = 16.0  # looks down a little, so the top of the water shows
 
 @export_group("Paper")
 @export var paper_color: Color = Color.WHITE
@@ -51,7 +52,7 @@ const WATER_SHADER := preload("res://shaders/pixel_water.gdshader")
 @export var card_size: Vector2i = Vector2i(1024, 768)  # world px a full-view card covers: the view plus room for lean, shake and pitch
 @export var dino_card_size: Vector2i = Vector2i(384, 384)  # world px around the dino
 @export var dino_resolution: float = 2.0  # texture px per world px on the dino's card; the art is made at 2×
-@export var hazards_resolution: float = 2.0  # the same for the cacti and gulls (the gull art is made at 2×)
+@export var hazards_resolution: float = 1.5  # the same for the cacti and gulls; 2 is sharper but heavy in a browser
 @export var dino_border_px: float = 3.5  # the dino gets a wider paper border, so it stands out against the sand
 @export var dino_ink_px: float = 1.5  # and a dark line around that
 @export var ink_color: Color = Color("2b2b2b")
@@ -61,10 +62,22 @@ const WATER_SHADER := preload("res://shaders/pixel_water.gdshader")
 @export var foam_art: Texture2D = preload("res://art/backgrounds/water_waves_01.png")
 @export var water_pixel_scale: float = 3.0  # world px per art pixel, same as the backdrops
 @export var waterline_row: float = 98.0  # art row of the waterline (the water and foam art share one frame)
-@export var foam_above_px: float = 24.0  # how far the foam strip reaches above / below the surface
+@export var foam_above_px: float = 6.0  # how far the foam strip reaches above / below the surface
 @export var foam_below_px: float = 54.0
 @export var top_depth: float = 0.35  # how quickly the top face fades to deeper water toward the back
-@export_range(0.0, 1.0) var water_opacity: float = 0.8  # front and top faces; the back wall stays solid
+@export_range(0.0, 1.0) var water_opacity: float = 1.0  # the front face (< 1 lets you see in a little; the top and back wall stay solid)
+
+@export_group("Depth cues")
+## Things that make the 3D read: a flat lit top on the water, faces darkening with depth, a shadow under the dino,
+## and far layers fading toward the sky (haze).
+@export var water_top_front: Color = Color("b4e2fa")  # the water's top face, at its front edge...
+@export var water_top_back: Color = Color("7cc0ea")  # ...and at the back, where a darker line marks its far edge
+@export_range(0.0, 1.0) var water_shade: float = 0.35  # how much darker the faces get deep down
+@export_range(0.0, 1.0) var shadow_alpha: float = 0.45  # the dino's shadow on the water, when it's on it
+@export var shadow_size: Vector2 = Vector2(56, 40)  # px across (x) and deep (z)
+@export var shadow_fade_px: float = 260.0  # the shadow shrinks and fades out by this high above the water
+@export var haze_per_px: float = 0.00018  # haze added per px of depth behind the water; capped at haze_max
+@export_range(0.0, 1.0) var haze_max: float = 0.45
 
 
 class Backdrop3D:
@@ -97,6 +110,8 @@ var _backdrops: Array[Backdrop3D] = []
 var _water_mesh := ArrayMesh.new()
 var _water_indices := PackedInt32Array()  # the same strip of quads every frame
 var _water_materials: Array[ShaderMaterial] = []  # back, top, front, foam: drawn in this order, back to front
+var _shadow := MeshInstance3D.new()
+var _shadow_material := ShaderMaterial.new()
 
 
 func _ready() -> void:
@@ -128,12 +143,26 @@ func _ready() -> void:
 		mat.set_shader_parameter("pixel_scale", water_pixel_scale)
 		mat.set_shader_parameter("waterline_row", waterline_row)
 		mat.set_shader_parameter("solid", i < 3)
-		mat.set_shader_parameter("opacity", water_opacity if i in [1, 2] else 1.0)
+		mat.set_shader_parameter("opacity", water_opacity if i == 2 else 1.0)
+		mat.set_shader_parameter("flat_top", i == 1)
+		mat.set_shader_parameter("top_front", water_top_front)
+		mat.set_shader_parameter("top_back", water_top_back)
+		mat.set_shader_parameter("top_depth", (water_front_z - water_back_z) * top_depth)
+		mat.set_shader_parameter("shade", water_shade if i in [0, 2] else 0.0)
 		_water_materials.append(mat)
 	var slab := MeshInstance3D.new()
 	slab.mesh = _water_mesh
 	slab.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # rebuilt every frame from the smoothed line
 	add_child(slab)
+
+	# The dino's shadow: a soft dark oval lying on the water's top under it.
+	_shadow_material.shader = SHADOW_SHADER
+	var oval := PlaneMesh.new()  # lies flat (in x and z), facing up
+	oval.size = shadow_size * S
+	_shadow.mesh = oval
+	_shadow.material_override = _shadow_material
+	_shadow.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	add_child(_shadow)
 
 	_camera = Camera3D.new()
 	_camera.fov = fov_deg
@@ -156,6 +185,7 @@ func _set_on(value: bool) -> void:
 	var vp := get_viewport()
 	vp.disable_3d = not on
 	vp.canvas_cull_mask = BASE if on else 0xFFFFFFFF  # BASE alone still shows the HUD
+	water.draw_flat = not on
 	_camera.current = on
 	for card in _cards:
 		card.viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
@@ -188,6 +218,8 @@ func _add_backdrop(b: Backdrop) -> void:
 		mat.set_shader_parameter("edge", edge_color)
 		mat.set_shader_parameter("border_art_px", border_px / b.pixel_scale)
 		mat.set_shader_parameter("pixel_scale", b.pixel_scale)
+		mat.set_shader_parameter("haze_color", RenderingServer.get_default_clear_color())
+		mat.set_shader_parameter("haze", minf(-(b.depth - water_back_z) * haze_per_px, haze_max))
 		mat.set_shader_parameter("first_row", float(b.first_row))
 		mat.set_shader_parameter("end_row", float(b.end_row()))
 		mat.set_shader_parameter("card_size", size)
@@ -264,6 +296,19 @@ func _process(_delta: float) -> void:
 	for card in _backdrops:
 		_place_backdrop(card, cam)
 	_build_water()
+	_place_shadow()
+
+
+## Lays the shadow on the water under the dino, tilted with the surface there; it shrinks and fades as the dino
+## flies higher, which is what makes its height (and the water's top) read.
+func _place_shadow() -> void:
+	var x := dino.position.x
+	var surface := water.surface_y(x)
+	var k := clampf(1.0 - (surface - dino.position.y) / shadow_fade_px, 0.0, 1.0)
+	_shadow.visible = k > 0.0 and not dino.crashed
+	_shadow_material.set_shader_parameter("alpha", shadow_alpha * k)
+	_shadow.transform = Transform3D(Basis(Vector3.BACK, -water.slope_angle(x)).scaled(Vector3.ONE * lerpf(0.5, 1.0, k)),
+		_to_3d(Vector2(x, surface - 0.5), dino_z))
 
 
 ## Where the camera's centre ray meets the plane at depth z, in that depth's 2D art coordinates.
@@ -328,7 +373,7 @@ func _build_water() -> void:
 			match surface:
 				0, 2:
 					var z := water_back_z if surface == 0 else water_front_z
-					var bottom := maxf(water.bottom_y, p.y + 20.0)
+					var bottom := maxf(water.bottom_y, p.y + 20.0) + 600.0  # well below the view, even seen in perspective
 					verts[i] = _to_3d(p, z)
 					verts[n + i] = _to_3d(Vector2(p.x, bottom), z)
 					uvs[i] = Vector2(p.x, 0.0)

@@ -15,6 +15,8 @@ uniform float end_row = 150.0;
 uniform vec2 card_origin;  // 2D px of the card's top-left
 uniform vec2 card_size;  // 2D px the card spans
 uniform vec2 art_origin;  // 2D px of the art's top-left, scroll included
+uniform vec4 haze_color : source_color = vec4(0.55, 0.78, 0.93, 1.0);  // the sky: far layers fade toward it
+uniform float haze = 0.0;  // 0 = none, 1 = all sky
 
 // Art pixel p folded into the mirrored tiling, or x < 0 when outside this backdrop's band.
 vec2 fold(vec2 p, vec2 size) {
@@ -49,5 +51,5 @@ void fragment() {
 			discard;
 		}
 	}
-	ALBEDO = is_edge ? edge.rgb : mix(paper.rgb, c.rgb, c.a);
+	ALBEDO = mix(is_edge ? edge.rgb : mix(paper.rgb, c.rgb, c.a), haze_color.rgb, haze);
 }

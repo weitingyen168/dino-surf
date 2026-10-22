@@ -43,8 +43,9 @@ const BODY_X := 0.6  # the body's centre, as a fraction of the art's width (the 
 
 @export_group("Spin slice")
 @export var spin_duration: float = 0.3  # seconds for one full spin; the slash is live the whole time
-@export var spin_cooldown: float = 0.35  # seconds after a spin before the next, so mashing doesn't work
+@export var spin_cooldown: float = 0.15  # seconds after a spin before the next, so mashing doesn't work
 @export var slash_reach: float = 30.0  # px the blade reaches in front of the body
+@export var air_spins: int = 2  # spin-jumps per jump (each kicks up by spin_lift); kills give them back
 @export var spin_lift: float = 220.0  # px/s straight-up kick when a spin starts; stops a fall and adds this; 0 turns it off
 
 @export_group("Floating")
@@ -69,7 +70,7 @@ var _board_rot := 0.0
 var _drops: Array = []  # [pos, vel] pairs in world space
 var _slash_left := 0.0  # > 0 while spinning
 var _slash_cooldown := 0.0
-var _air_spun := false  # already spun since leaving the water: only one spin per jump
+var _air_spins_used := 0  # spins since leaving the water; up to air_spins per jump
 var _refunded := false  # this spin hit something: no cooldown when it ends
 var _takeoff := false  # this spin came with a leap: a free one, it doesn't use up the jump's spin
 var _panic := false  # the last spin hit nothing: scared face and red board until back on the water
@@ -96,7 +97,7 @@ func reset() -> void:
 	_drops.clear()
 	_slash_left = 0.0
 	_slash_cooldown = 0.0
-	_air_spun = false
+	_air_spins_used = 0
 	_refunded = false
 	_panic = false
 	_takeoff = false
@@ -112,12 +113,12 @@ func hit_rect() -> Rect2:
 
 ## The spin (Up): the board spins under the dino (slashing, so anything it touches is cut or knocked
 ## away rather than hitting it) and the dino kicks straight up by spin_lift. A `takeoff` spin comes free with a
-## Down-then-Up leap: the leap is the lift, it doesn't use up the jump's spin, and missing with it costs nothing. Pressed on the water it hops off and
-## spins at once, so the protection starts on the press. One spin per jump; a spin that hits nothing leaves the
-## dino panicked (scared face, red board) until it lands. Returns false while crashed, cooling down, or already
-## spun on this jump.
+## Down-then-Up leap: the leap is the lift, it doesn't use up the jump's spins, and missing with it costs nothing.
+## Pressed on the water it hops off and spins at once, so the protection starts on the press. air_spins per jump;
+## a spin that hits nothing with none left after it leaves the dino panicked (scared face, red board) until it
+## lands. Returns false while crashed, cooling down, or out of spins for this jump.
 func spin(takeoff: bool = false) -> bool:
-	if crashed or _slash_left > 0.0 or _slash_cooldown > 0.0 or (_air_spun and not on_surface):
+	if crashed or _slash_left > 0.0 or _slash_cooldown > 0.0 or (_air_spins_used >= air_spins and not on_surface):
 		return false
 	if on_surface:
 		position.y = minf(position.y, water.surface_y(position.x) - 2.0)  # clear of the water so buoyancy lets go
@@ -130,13 +131,13 @@ func spin(takeoff: bool = false) -> bool:
 		return true
 	if spin_lift > 0.0:
 		velocity.y = minf(velocity.y, 0.0) - spin_lift  # straight up: cancel any fall, then kick
-	_air_spun = true
+	_air_spins_used += 1
 	return true
 
 
-## A spin that slices a cactus or knocks a gull gives the spin back: spin again as soon as this one ends.
+## A spin that slices a cactus or knocks a gull gives that spin back: spin again as soon as this one ends.
 func refund_spin() -> void:
-	_air_spun = false
+	_air_spins_used = maxi(_air_spins_used - 1, 0)
 	_refunded = true
 
 
@@ -208,7 +209,7 @@ func _float(delta: float) -> void:
 	on_surface = depth > -1.0
 	if on_surface:
 		_air_time = 0.0
-		_air_spun = false
+		_air_spins_used = 0
 		_panic = false
 	elif _air_time <= coyote_s:
 		_air_time += delta
@@ -221,7 +222,7 @@ func _float(delta: float) -> void:
 		if _slash_left <= 0.0:
 			var missed := not _refunded and not _takeoff
 			_slash_cooldown = spin_cooldown if missed else 0.0
-			_panic = missed  # whiffed: nothing to cut, and no spin left until the water
+			_panic = missed and _air_spins_used >= air_spins  # whiffed with none left until the water
 			if missed:
 				spin_missed.emit()
 			_refunded = false

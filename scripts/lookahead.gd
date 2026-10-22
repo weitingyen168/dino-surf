@@ -38,7 +38,7 @@ func _draw() -> void:
 		if is_instance_valid(o) and not o.sliced:
 			_marker(Vector2(o.position.x, o.top_y()), _view.hazards_z, BUOY if o is Buoy else CACTUS)
 	for g in _gulls.gulls:
-		if is_instance_valid(g):
+		if is_instance_valid(g) and not g.knocked:
 			_marker(g.position, _view.hazards_z, GULL)
 
 

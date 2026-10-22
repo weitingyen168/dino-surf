@@ -6,9 +6,11 @@ extends Node2D
 ## break apart again. Crests are peaked and troughs flat. The springs handle local pushes.
 ## Heights are in pixels, positive = up. Screen y = base_y - height.
 
-@export var start_x: float = -700.0  # far past the left edge of the view, whatever the tilt or perspective
-@export var width: float = 2000.0  # far past both edges of the view, so its ends never show
-@export var point_count: int = 308  # keeps the spacing about 6.5 px
+@export var start_x: float = -320.0  # the spring chain: just past the left edge of the view
+@export var width: float = 1360.0  # ...to just past the right edge
+@export var point_count: int = 210  # keeps the spacing about 6.5 px
+@export var skirt_px: float = 500.0  # the drawn surface carries on this far past each end of the chain (swell only)
+@export var skirt_step_px: float = 13.0  # at this spacing, so its ends never show and it costs little
 @export var base_y: float = 250.0
 @export var bottom_y: float = 640.0  # well below the screen, so the fill still covers it when the camera moves
 @export var max_height: float = 140.0
@@ -133,11 +135,22 @@ func _process(_delta: float) -> void:
 	_drawn_scroll = sc
 	var pts := PackedVector2Array()
 	var deepest := 0.0
+	# Skirt, chain, skirt: the springs only run where the surface is seen; past them it's the swell alone, with the
+	# chain's end height eased away so there's no step.
+	var left_h := lerpf(_prev_h[0], _h[0], f)
+	var right_h := lerpf(_prev_h[point_count - 1], _h[point_count - 1], f)
+	var steps := int(skirt_px / skirt_step_px)
+	for k in range(steps, 0, -1):
+		var x := start_x - k * skirt_step_px
+		pts.append(Vector2(x, base_y - left_h * (1.0 - float(k) / steps) - _swell(x + sc, tm) + tilt_offset(x)))
 	for i in point_count:
 		var x := start_x + i * _spacing
 		var y := base_y - lerpf(_prev_h[i], _h[i], f) - _swell(x + sc, tm) + tilt_offset(x)
 		deepest = maxf(deepest, y)
 		pts.append(Vector2(x, y))
+	for k in range(1, steps + 1):
+		var x := start_x + width + k * skirt_step_px
+		pts.append(Vector2(x, base_y - right_h * (1.0 - float(k) / steps) - _swell(x + sc, tm) + tilt_offset(x)))
 	_points = pts
 	if not draw_flat:
 		return  # rebuilding the fill polygon every frame isn't free, and nobody sees it
@@ -146,8 +159,8 @@ func _process(_delta: float) -> void:
 	# Godot can't triangulate it, and the fill vanishes for that frame (the flashing).
 	var bottom := maxf(bottom_y, deepest + 20.0)
 	var poly := pts.duplicate()
-	poly.append(Vector2(start_x + width, bottom))
-	poly.append(Vector2(start_x, bottom))
+	poly.append(Vector2(pts[pts.size() - 1].x, bottom))
+	poly.append(Vector2(pts[0].x, bottom))
 	_fill.polygon = poly
 
 

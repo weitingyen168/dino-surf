@@ -12,13 +12,15 @@ The Chrome Dino desert has flooded. You don't control the dino — you control t
 ## How to play
 
 Surf as far as you can. The score (top right, Chrome Dino style) is the distance; your best is saved.
-Cacti and seagulls start sparse and get denser over about two minutes of surfing; now and then a buoy floats by.
+Like the Chrome Dino, the pace picks up the longer you last (it's at full speed around 5000 points); now and then
+a buoy floats by.
 A spin that misses leaves the dino panicked (scared face, red board) until it lands: no spin left.
 
 | Key | Action |
 | --- | --- |
 | Left / Right (or hold either half of the screen) | Tilt the world: speed up / slow down; in the air, shift where you land |
 | Down, then Up | Leap |
+| Down (in the air) | Fast fall |
 | X / Shift | Spin the board: slices a cactus, knocks a gull or buoy away |
 | Space | Bulge the water ahead into a ramp |
 | R | Restart |

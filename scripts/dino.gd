@@ -30,7 +30,7 @@ const BODY_X := 0.6  # the body's centre, as a fraction of the art's width (the 
 ## sky and water. 0.78 = purple; set brightness 1 and hue 0.33 for the original green.
 @export_range(0.0, 1.0) var body_hue: float = 0.78
 @export_range(0.0, 2.0) var body_brightness: float = 0.8
-@export var home_x: float = 220.0
+@export var home_x: float = 170.0  # left of centre, so you see more of what's coming
 
 @export_group("Speed")
 @export var start_speed: float = 220.0

@@ -44,6 +44,8 @@ extends Node2D
 @export var crest_sharpness: float = 0.6  # 0 = smooth sine, 1 = peaked crests and wide flat troughs, like real swell
 
 var speed := 200.0  # px/s the ocean scrolls left, i.e. how fast the dino surfs; set by Main
+var tilt := 0.0  # radians the whole surface is tipped, + = downhill toward the right; set by Main as the pace rises
+var tilt_pivot_x := 220.0  # screen x the tilt turns about (the dino), so the dino's height doesn't jump; set by Main
 
 var _h := PackedFloat32Array()
 var _v := PackedFloat32Array()
@@ -133,7 +135,7 @@ func _process(_delta: float) -> void:
 	var deepest := 0.0
 	for i in point_count:
 		var x := start_x + i * _spacing
-		var y := base_y - lerpf(_prev_h[i], _h[i], f) - _swell(x + sc, tm)
+		var y := base_y - lerpf(_prev_h[i], _h[i], f) - _swell(x + sc, tm) + tilt_offset(x)
 		deepest = maxf(deepest, y)
 		pts.append(Vector2(x, y))
 	_points = pts
@@ -168,7 +170,17 @@ func height_at(x: float) -> float:
 
 ## Screen-space y of the surface at x.
 func surface_y(x: float) -> float:
-	return base_y - height_at(x)
+	return base_y - height_at(x) + tilt_offset(x)
+
+
+## How far the tilt moves the surface down at screen x (negative = up).
+func tilt_offset(x: float) -> float:
+	return (x - tilt_pivot_x) * tan(tilt)
+
+
+## Screen y of the calm water line at x, tilt included: where planted cacti stand.
+func calm_y(x: float) -> float:
+	return base_y + tilt_offset(x)
 
 
 ## Angle of the surface at x, in radians (0 = flat, negative = rising to the right).
@@ -222,8 +234,8 @@ func time() -> float:
 	return _time
 
 
-## Screen-space y of the swell alone (no spring ripples) at world position w and time t. Fully predictable,
-## so it's what you look ahead with.
+## Screen-space y of the swell alone (no spring ripples, no tilt) at world position w and time t. Fully
+## predictable, so it's what you look ahead with.
 func swell_y(w: float, t: float) -> float:
 	return base_y - _swell(w, t)
 

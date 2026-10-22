@@ -12,10 +12,10 @@ signal gull_knocked
 @export var dino: Dino
 @export var container: Node2D
 
-@export var spawn_x: float = 850.0  # just off the right edge
+@export var spawn_x: float = 1300.0  # well past the right edge, so its warning marker shows first
 @export var min_gap_px: float = 250.0  # distance travelled between gulls
 @export var max_gap_px: float = 550.0
-@export var first_gull_px: float = 2500.0
+@export var first_gull_px: float = 2000.0
 @export var min_alt: float = 110.0  # px above the calm water line; low enough to matter, above normal surfing
 @export var max_alt: float = 300.0  # keep within the view while surfing
 @export var height_bias: float = 1.5  # 0 = spread evenly; higher = packed toward the top, so flying high is riskier
@@ -26,11 +26,11 @@ signal gull_knocked
 @export var high_max_alt: float = 420.0  # the view rises with the dino when it flies, so these come into view then
 @export var high_min_gap_px: float = 350.0
 @export var high_max_gap_px: float = 750.0
-@export var first_high_gull_px: float = 3200.0
+@export var first_high_gull_px: float = 2700.0
 
 var gulls: Array[Seagull] = []
-var next_gull_px := 2500.0  # px to go until the next gull; reset() sets it to first_gull_px
-var next_high_gull_px := 3200.0  # the same for the gulls up top
+var next_gull_px := 2000.0  # px to go until the next gull; reset() sets it to first_gull_px
+var next_high_gull_px := 2700.0  # the same for the gulls up top
 
 
 func reset() -> void:

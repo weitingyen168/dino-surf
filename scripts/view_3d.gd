@@ -49,7 +49,7 @@ const WATER_SHADER := preload("res://shaders/pixel_water.gdshader")
 @export var edge_color: Color = Color("a8a8a8")
 @export var border_px: float = 2.0  # paper left around the art, in world px
 @export var thickness_px: float = 2.0  # how far behind each card its edge slice sits
-@export var card_size: Vector2i = Vector2i(1024, 768)  # world px a full-view card covers: the view plus room for lean, shake and pitch
+@export var card_size: Vector2i = Vector2i(1088, 800)  # world px a full-view card covers: the view plus room for lean, shake and pitch
 @export var dino_card_size: Vector2i = Vector2i(384, 384)  # world px around the dino
 @export var dino_resolution: float = 2.0  # texture px per world px on the dino's card; the art is made at 2×
 @export var hazards_resolution: float = 1.5  # the same for the cacti and gulls; 2 is sharper but heavy in a browser
@@ -70,8 +70,9 @@ const WATER_SHADER := preload("res://shaders/pixel_water.gdshader")
 @export_group("Depth cues")
 ## Things that make the 3D read: a flat lit top on the water, faces darkening with depth, a shadow under the dino,
 ## and far layers fading toward the sky (haze).
-@export var water_top_front: Color = Color("b4e2fa")  # the water's top face, at its front edge...
-@export var water_top_back: Color = Color("7cc0ea")  # ...and at the back, where a darker line marks its far edge
+@export var water_top_front: Color = Color("2f86c6")  # the water's top face, at its front edge...
+@export var water_top_back: Color = Color("1b5c94")  # ...and at the back, where a darker line marks its far edge
+@export_range(0.0, 1.0) var water_top_opacity: float = 0.6  # clear like real water: you see down into it
 @export_range(0.0, 1.0) var water_shade: float = 0.35  # how much darker the faces get deep down
 @export_range(0.0, 1.0) var shadow_alpha: float = 0.45  # the dino's shadow on the water, when it's on it
 @export var shadow_size: Vector2 = Vector2(56, 40)  # px across (x) and deep (z)
@@ -143,7 +144,8 @@ func _ready() -> void:
 		mat.set_shader_parameter("pixel_scale", water_pixel_scale)
 		mat.set_shader_parameter("waterline_row", waterline_row)
 		mat.set_shader_parameter("solid", i < 3)
-		mat.set_shader_parameter("opacity", water_opacity if i == 2 else 1.0)
+		mat.set_shader_parameter("opacity", [1.0, water_top_opacity, water_opacity, 1.0][i])
+		mat.render_priority = i  # back wall, then top, front, foam: so what's seen through each face is already drawn
 		mat.set_shader_parameter("flat_top", i == 1)
 		mat.set_shader_parameter("top_front", water_top_front)
 		mat.set_shader_parameter("top_back", water_top_back)
@@ -395,6 +397,11 @@ func _build_water() -> void:
 		arrays[Mesh.ARRAY_INDEX] = _water_indices
 		_water_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 		_water_mesh.surface_set_material(surface, _water_materials[surface])
+
+
+## Where a 2D world point drawn on the card at depth z ends up in 3D (cards are scaled about the camera's eye).
+func card_point(at: Vector2, z: float) -> Vector3:
+	return _to_3d(_eye + (at - _eye) * _scale_at(z), z)
 
 
 ## 2D px (y down) at depth z px -> 3D units (y up).

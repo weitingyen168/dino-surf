@@ -3,7 +3,7 @@ extends Camera2D
 ## Rises to follow the dino when it flies high, and shakes on hits.
 
 @export var dino: Dino
-@export var view_zoom: float = 0.75  # < 1 zooms out: shows more ocean and sky (0.75 = about 850×480 of the world)
+@export var view_zoom: float = 0.66  # < 1 zooms out: shows more ocean and sky (0.66 = about 970×545 of the world)
 @export var rest_y: float = 160.0  # camera centre while the dino is on the water
 @export var headroom: float = 70.0  # when the dino flies high, the camera centre stays this far below it
 @export var follow: float = 5.0  # how quickly the camera catches up

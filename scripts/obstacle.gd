@@ -2,8 +2,8 @@ class_name Obstacle
 extends Node2D
 ## Cactus, Chrome Dino style: a tall saguaro with arms, or a short stubby one, in the backdrop cacti's colours.
 ## Planted in the flooded desert floor: it stands still and upright while the swell rises and falls around it,
-## so a crest can bury its foot and a trough shows more of it. It only moves left as the ocean scrolls.
-## The node's origin is the calm waterline (Water.base_y) at its centre; `size` is the trunk (arms are decoration,
+## so a crest can bury its foot and a trough shows more of it. It only moves left as the ocean scrolls (keeping to
+## the calm line as the water tilts). The node's origin is the calm waterline (Water.calm_y) at its centre; `size` is the trunk (arms are decoration,
 ## not hit). The trunk carries on down to the seabed, so riding low in a trough still runs into it.
 
 const GREEN := Color("6a9a4e")  # the backdrop cacti's palette
@@ -48,6 +48,7 @@ func hit_rect() -> Rect2:
 
 func _physics_process(delta: float) -> void:
 	position.x -= water.speed * delta
+	position.y = water.calm_y(position.x)
 	if sliced:
 		_top_vel.y += 600.0 * delta
 		_top_off += _top_vel * delta

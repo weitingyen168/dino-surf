@@ -1,14 +1,12 @@
 class_name GameCamera
 extends Camera2D
-## Rises to follow the dino when it flies high, leans with the world's tilt, and shakes on hits.
+## Rises to follow the dino when it flies high, and shakes on hits.
 
 @export var dino: Dino
-@export var controls: Controls
 @export var view_zoom: float = 0.75  # < 1 zooms out: shows more ocean and sky (0.75 = about 850×480 of the world)
 @export var rest_y: float = 160.0  # camera centre while the dino is on the water
 @export var headroom: float = 70.0  # when the dino flies high, the camera centre stays this far below it
 @export var follow: float = 5.0  # how quickly the camera catches up
-@export var tilt_fraction: float = 0.5  # how much of the world's tilt the camera shows
 
 var _shake := 0.0
 
@@ -33,5 +31,3 @@ func _physics_process(delta: float) -> void:
 	var target_y := minf(rest_y, dino.position.y + headroom)
 	position.y = lerpf(position.y, target_y, follow * delta)
 	offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake
-	# Positive tilt tips the world down toward the direction of travel; the camera leans to show it.
-	rotation = -controls.tilt * tilt_fraction

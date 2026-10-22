@@ -7,7 +7,7 @@ extends Node2D
 ## Heights are in pixels, positive = up. Screen y = base_y - height.
 
 @export var start_x: float = -220.0
-@export var width: float = 1100.0  # wider than the zoomed-out view (and its tilt) so edges stay off-screen
+@export var width: float = 1100.0  # wider than the zoomed-out view so edges stay off-screen
 @export var point_count: int = 170  # keeps the spacing about 6.5 px
 @export var base_y: float = 250.0
 @export var bottom_y: float = 640.0  # well below the screen, so the fill still covers it when the camera moves
@@ -58,6 +58,8 @@ var _prev_time := 0.0
 var _drawn_scroll := 0.0  # the scroll the surface was last drawn at, between physics ticks
 var _fill: Polygon2D
 var _line: Line2D
+var _points := PackedVector2Array()  # the surface as drawn this frame
+var draw_flat := true  # keep the flat 2D water (fill and line) up to date; View3D turns it off while it draws the water
 
 
 func _ready() -> void:
@@ -134,6 +136,9 @@ func _process(_delta: float) -> void:
 		var y := base_y - lerpf(_prev_h[i], _h[i], f) - _swell(x + sc, tm)
 		deepest = maxf(deepest, y)
 		pts.append(Vector2(x, y))
+	_points = pts
+	if not draw_flat:
+		return  # rebuilding the fill polygon every frame isn't free, and nobody sees it
 	_line.points = pts
 	# The fill's bottom must stay below every surface point, or the polygon folds over itself,
 	# Godot can't triangulate it, and the fill vanishes for that frame (the flashing).
@@ -151,14 +156,6 @@ func push(x: float, radius: float, strength: float, delta: float) -> void:
 		if d < radius:
 			var falloff := 0.5 + 0.5 * cos(PI * d / radius)
 			_v[i] += strength * falloff * delta
-
-
-## Tilting the world sloshes the water: positive `amount` kicks the right side up and the left side down.
-## Uses a smooth S-curve (flat at the edges) so the whole surface rolls instead of hinging.
-func slosh(amount: float) -> void:
-	for i in point_count:
-		var u := float(i) / (point_count - 1)  # 0..1 across the chain
-		_v[i] += amount * sin(PI * (u - 0.5))
 
 
 ## Surface height at x, positive = up.
@@ -207,7 +204,7 @@ func next_crest(from: float, reach: float = 800.0) -> float:
 
 ## The surface as drawn this frame (smoothed between physics ticks), left to right in screen space. View3D extrudes it.
 func surface_points() -> PackedVector2Array:
-	return _line.points
+	return _points
 
 
 ## The scroll that goes with surface_points(), so art laid along the surface moves with it.

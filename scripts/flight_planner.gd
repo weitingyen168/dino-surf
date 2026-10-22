@@ -1,18 +1,16 @@
 class_name FlightPlanner
 ## Answers "where can debris go so the player can still fly over it?" for ObstacleSpawner.
-## Plays the dino forward on the swell alone (the spring ripples are small) with a full forward tilt from
-## right now: same physics as Dino._float, same tilt spring as Controls. The swells travel, so it steps time
-## too; debris stays put in world space. Planted debris (cacti) has a fixed top; floating debris (a buoy) rides
+## Plays the dino forward on the swell alone (the spring ripples are small) from right now, with no input: same
+## physics as Dino._float. The swells travel, so it steps time too; debris stays put in world space. Planted debris (cacti) has a fixed top; floating debris (a buoy) rides
 ## the swell, so its top moves with the water under it.
 
 
 ## World positions (screen x + scroll) from screen x `from_x` to `from_x + reach` where debris `width` wide,
-## with its top at screen y `top_y`, would be cleared by the first flight a full forward tilt produces.
+## with its top at screen y `top_y`, would be cleared by the next flight the swell gives the dino on its own.
 ## `rides_height` > 0 means it floats instead: its top is that far above the swell, wherever the swell is then.
-static func clearable_spots(d: Dino, water: Water, controls: Controls, from_x: float, reach: float,
+static func clearable_spots(d: Dino, water: Water, from_x: float, reach: float,
 		width: float, top_y: float, rides_height: float = 0.0) -> Array[float]:
 	var dt := 1.0 / Engine.physics_ticks_per_second
-	var target := deg_to_rad(controls.max_tilt_deg)
 	var s := water.scroll()
 	var now := water.time()
 	var first := from_x + s
@@ -20,16 +18,11 @@ static func clearable_spots(d: Dino, water: Water, controls: Controls, from_x: f
 	var y := d.position.y
 	var vy := d.velocity.y
 	var v := d.speed
-	var t := controls.tilt
-	var tv := controls.tilt_vel
 	var on := d.on_surface
 	var touching := d._touching
 	var flights: Array[Vector3] = []  # (dino world x, board y, time) while airborne
 	var in_air := false
 	while d.home_x + s < last + width:
-		var spring := Controls.spring_step(t, tv, target, controls.tilt_response, dt)
-		t = spring.x
-		tv = spring.y
 		s += v * dt
 		now += dt
 		var w := d.home_x + s
@@ -48,8 +41,7 @@ static func clearable_spots(d: Dino, water: Water, controls: Controls, from_x: f
 			var surf_vy := (surf - water.swell_y(w - v * dt, now - dt)) / dt
 			accel -= d.gravity + d.buoyancy * depth + d.water_drag * (vy - surf_vy)
 			touching = true
-			var downhill := slope + t
-			v += d.gravity * sin(downhill) * cos(downhill) * d.slope_gain * dt
+			v += d.gravity * sin(slope) * cos(slope) * d.slope_gain * dt
 			v -= v * d.water_friction * dt
 		elif touching and depth > -d.stick_range:
 			accel += d.stickiness

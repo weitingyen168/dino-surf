@@ -51,7 +51,7 @@ func _ready() -> void:
 
 	var title := _label("DINO SURF", 32, Color.WHITE)
 	_prompt = _label("Press any key to surf" if _awake else "Click to turn on sound", 8, Color("c8c8c8"))
-	var keys := _label("Left/Right tilt   Down+Up leap   X spin", 8, Color("8a8a8a"))
+	var keys := _label("Up spin   Down then Up leap + spin   Down fast fall", 8, Color("8a8a8a"))
 	var column := VBoxContainer.new()
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_theme_constant_override("separation", 0)  # four lines on a small screen

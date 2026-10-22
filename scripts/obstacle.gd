@@ -25,6 +25,16 @@ var _top_rot := 0.0
 var _top_spin := 0.0
 
 
+func _ready() -> void:
+	scale = _drawn_scale()
+
+
+## How much bigger it's drawn than its hit box, to read easily. A cactus only gets thicker: taller would change
+## what has to be jumped.
+func _drawn_scale() -> Vector2:
+	return Vector2(1.3, 1.0)
+
+
 ## Screen y of the trunk's top. Fixed, since the cactus doesn't bob.
 func top_y() -> float:
 	return position.y - size.y * (1.0 - sunk)

@@ -21,10 +21,11 @@ signal cactus_sliced
 @export var clear_margin_px: float = 8.0
 @export var plan_reach_px: float = 700.0  # how far past spawn_x to look for a spot
 @export var retry_spawn_px: float = 60.0  # no clearable spot in reach: look again after this far
-@export var buoy_chance: float = 0.12  # chance each piece of debris is a buoy instead of a cactus
+@export var buoy_chance: float = 0.12  # chance each piece of debris is a buoy instead of a cactus (never two in a row)
 
 var obstacles: Array[Obstacle] = []
-var next_spawn_px := 450.0  # px to go until the next debris; reset() sets it to first_obstacle_px
+var next_spawn_px := 450.0
+var _last_was_buoy := false  # px to go until the next debris; reset() sets it to first_obstacle_px
 
 
 func reset() -> void:
@@ -57,7 +58,7 @@ func _physics_process(delta: float) -> void:
 
 ## Returns false, spawning nothing, when no spot in reach can be cleared from the dino's current state.
 func _spawn() -> bool:
-	var buoy := randf() < buoy_chance
+	var buoy := not _last_was_buoy and randf() < buoy_chance
 	var o: Obstacle = Buoy.new() if buoy else Obstacle.new()
 	o.water = water
 	# Cacti: tall saguaros with arms, or short stubby ones. A real leap or flight needed to clear them.
@@ -82,4 +83,5 @@ func _spawn() -> bool:
 	o.position = Vector2(x, water.surface_y(x) if buoy else water.calm_y(x))
 	container.add_child(o)
 	obstacles.append(o)
+	_last_was_buoy = buoy
 	return true

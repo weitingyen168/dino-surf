@@ -7,6 +7,9 @@ extends Control
 signal started  # the player pressed a key to surf
 
 const STRIP := preload("res://art/ui/title_handheld_01.png")
+const KEY_UP := preload("res://art/ui/key_up_01.png")
+const KEY_DOWN := preload("res://art/ui/key_down_01.png")
+const HINT := Color("8a8a8a")
 const FRAME := Vector2(50, 50)  # one frame of the strip, in art px
 const FRAME_S := 0.1  # seconds per frame, as in the GIF
 const PANEL := Rect2(3, 23, 44, 15)  # the handheld's dark lower screen, in art px: the title goes here
@@ -51,13 +54,15 @@ func _ready() -> void:
 
 	var title := _label("DINO SURF", 32, Color.WHITE)
 	_prompt = _label("Press any key to surf" if _awake else "Click to turn on sound", 8, Color("c8c8c8"))
-	var keys := _label("Up spin   Down then Up leap + spin   Down fast fall", 8, Color("8a8a8a"))
+	var spin_keys := _key_row([KEY_UP, "spin: cuts cacti & seagulls"])
+	var other_keys := _key_row([KEY_DOWN, KEY_UP, "leap + spin", "   ", KEY_DOWN, "fast fall"])
 	var column := VBoxContainer.new()
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_theme_constant_override("separation", 0)  # four lines on a small screen
 	column.add_child(title)
 	column.add_child(_prompt)
-	column.add_child(keys)
+	column.add_child(spin_keys)
+	column.add_child(other_keys)
 	column.add_child(_story_button())
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_handheld.add_child(column)
@@ -91,6 +96,27 @@ func _story_button() -> Button:
 func _open_lore() -> void:
 	_lore = LoreSlideshow.new()
 	add_child(_lore)
+
+
+## A centred row of key icons (textures) and words (strings), for the controls.
+func _key_row(parts: Array) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 2)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for part in parts:
+		if part is Texture2D:
+			var key := TextureRect.new()
+			key.texture = part
+			key.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			key.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			key.custom_minimum_size = Vector2(11, 11)
+			key.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+			key.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(key)
+		else:
+			row.add_child(_label(part, 8, HINT))
+	return row
 
 
 func _label(text: String, font_size: int, color: Color) -> Label:

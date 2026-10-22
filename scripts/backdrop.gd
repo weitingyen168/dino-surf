@@ -13,6 +13,7 @@ extends Node2D
 @export var pixel_scale: float = 3.0  # world px per art pixel
 @export var first_row: int = 0  # art rows this layer shows
 @export var last_row: int = -1  # -1 = to the bottom
+@export var extend_down_px: float = 0.0  # carry the bottom row on down this far (the ground, under a tilted sea)
 
 var parallax := 1.0  # fraction of the ocean's speed this layer scrolls at
 var _prev_x := 0.0
@@ -53,4 +54,6 @@ func _draw() -> void:
 		draw_set_transform(Vector2(size.x * (i + 1 if flip else i), first_row * pixel_scale), 0.0,
 			Vector2(-1.0 if flip else 1.0, 1.0))
 		draw_texture_rect_region(texture, Rect2(Vector2.ZERO, size), band)
+		if extend_down_px > 0.0:
+			draw_texture_rect_region(texture, Rect2(0.0, size.y, size.x, extend_down_px), Rect2(0, end_row() - 1, band.size.x, 1))
 	draw_set_transform(Vector2.ZERO)

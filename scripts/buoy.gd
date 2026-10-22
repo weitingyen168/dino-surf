@@ -15,6 +15,10 @@ func _init() -> void:
 	sunk = 0.0
 
 
+func _drawn_scale() -> Vector2:
+	return Vector2.ONE * 1.3
+
+
 func top_y() -> float:
 	return position.y - size.y
 

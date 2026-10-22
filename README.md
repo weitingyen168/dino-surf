@@ -14,8 +14,8 @@ The Chrome Dino desert has flooded. You don't control the dino — you control t
 Markers on the right edge warn of what's coming (green cactus, red buoy, white gull), at the height you'll meet it.
 
 Surf as far as you can. The score (top right, Chrome Dino style) is the distance; your best is saved.
-Like the Chrome Dino, the pace picks up the longer you last (the water tilts downhill, and the slope speeds you
-up), and the colours flip every 1000 points. Kills in a row build a combo for bonus points (25, 50, 75...);
+Like the Chrome Dino, the pace picks up steadily the longer you last (and the water tilts downhill to show it);
+the waves carry you up and down, and splash when you land, but never change your speed, and the colours flip every 1000 points. Kills in a row build a combo for bonus points (25, 50, 75...);
 from three in a row a big COMBO counter shows up (it's at full speed around 5000 points); now and then
 a buoy floats by.
 A spin that misses leaves the dino panicked (scared face, red board) until it lands: no spin left.
@@ -82,8 +82,8 @@ Godot_v4.7.2-stable_win64_console.exe --headless --path . --script res://tools/p
 
 The file list (source → `art/` name) is at the top of the script.
 - **Tuning:** depths, camera pitch / FOV, paper border and thickness, and water colours are exported on `View3D`.
-- **Depth cues** (`View3D` → *Depth cues*): the water's flat top fades darker toward the back, its faces darken with
-  depth, the dino casts a soft shadow on the water that shrinks as it flies, and far layers fade toward the sky.
+- **Depth cues** (`View3D` → *Depth cues*): the dino casts a soft shadow on the water that shrinks as it flies, and
+  far layers fade toward the sky.
 
 ## Folders
 

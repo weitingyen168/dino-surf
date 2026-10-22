@@ -1,12 +1,11 @@
 class_name Dino
 extends Node2D
-## The surfer. It stays at home_x on screen while the ocean scrolls past at `speed`.
-## Speed: gravity along the slope. Riding down a swell's face speeds it up, riding up one slows it,
-## and landing on a down-slope turns the fall into extra speed (but not a dive's: see _land).
+## The surfer. It stays at home_x on screen while the ocean scrolls past at `speed`, which Main sets from the pace:
+## the water carries it up and down but never changes how fast it goes.
 ## Height: a floating body — gravity pulls it down; in the water, buoyancy pushes it up and drag
 ## carries it with the surface. Nothing scripts a jump: going over a crest fast enough means the
 ## surface drops away faster than gravity can follow, so it flies.
-## Landing is always safe; only debris ends a run.
+## Landing is always safe (it splashes the water); only debris ends a run.
 ## The node's origin is where the board touches the water.
 
 signal spin_missed  # a spin ended without hitting anything
@@ -23,6 +22,7 @@ const BODY_X := 0.6  # the body's centre, as a fraction of the art's width (the 
 
 @export var water: Water
 @export var gravity: float = 600.0
+@export var sprite_scale: float = 1.5  # drawn this much bigger, to read easily; the hit box stays the same
 @export var scared_fall_speed: float = 250.0  # falling faster than this (px/s) pulls the scared face
 
 @export_group("Colour")
@@ -32,12 +32,9 @@ const BODY_X := 0.6  # the body's centre, as a fraction of the art's width (the 
 @export_range(0.0, 2.0) var body_brightness: float = 0.8
 @export var home_x: float = 170.0  # left of centre, so you see more of what's coming
 
-@export_group("Speed")
-@export var start_speed: float = 220.0
-@export var min_speed: float = 100.0
-@export var max_speed: float = 650.0
-@export var slope_gain: float = 1.0  # how much riding down / up a slope speeds up / slows down
-@export var water_friction: float = 0.12  # per second while on the water, so speed settles if you do nothing
+@export_group("Splash")
+@export var splash_strength: float = 0.5  # landing pushes the water down by this fraction of the fall speed
+@export var splash_radius: float = 40.0
 
 @export_group("Leap")
 @export var leap_speed: float = 360.0  # upward kick of a leap; height is about leap_speed² / (2 × gravity)
@@ -79,6 +76,7 @@ var _panic := false  # the last spin hit nothing: scared face and red board unti
 
 
 func _ready() -> void:
+	scale = Vector2.ONE * sprite_scale  # about the board's bottom, so it still sits on the water
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR  # the art rotates with the face; smooth, not jagged
 	var recolor := ShaderMaterial.new()
 	recolor.shader = preload("res://shaders/recolor_greens.gdshader")
@@ -89,7 +87,6 @@ func _ready() -> void:
 
 func reset() -> void:
 	velocity = Vector2.ZERO
-	speed = start_speed
 	on_surface = true
 	_touching = true
 	crashed = false
@@ -147,9 +144,10 @@ func slashing() -> bool:
 	return _slash_left > 0.0 and not crashed
 
 
-## The spinning blade's reach in world space: the body plus slash_reach in front and a little above.
+## The spinning blade's reach in world space: the body plus slash_reach in front and a little above, grown with
+## the drawing so it hits what the bigger board looks like it should.
 func slash_rect() -> Rect2:
-	return Rect2(position + Vector2(-14, -40), Vector2(26 + slash_reach, 44))
+	return Rect2(position + Vector2(-14, -40) * sprite_scale, Vector2(26 + slash_reach, 44) * sprite_scale)
 
 
 ## Jumps off the water. Works on the surface and for coyote_s after leaving it; returns false otherwise.
@@ -194,19 +192,15 @@ func _float(delta: float) -> void:
 	var accel := gravity
 	if depth >= 0.0:
 		if not on_surface:
-			_land(slope)
+			_land()
 		# In the water: buoyancy holds it at the surface and drag carries it along with the water.
 		var rel_vy := velocity.y - water.surface_velocity_y(position.x)
 		accel -= gravity + buoyancy * depth + water_drag * rel_vy
 		_touching = true
-		# Gravity along the face: downhill speeds you up, uphill slows you down.
-		speed += gravity * sin(slope) * cos(slope) * slope_gain * delta
-		speed -= speed * water_friction * delta
 	elif _touching and depth > -stick_range:
 		accel += stickiness  # surface tension: a gentle lift-off gets pulled back down
 	else:
 		_touching = false
-	speed = clampf(speed, min_speed, max_speed)
 	if crouching:
 		accel += dive_force  # on the water buoyancy takes most of it; in the air it's a fast fall
 	velocity.y += accel * delta
@@ -237,15 +231,12 @@ func _float(delta: float) -> void:
 	rotation = lerp_angle(rotation, target, (12.0 if on_surface else 4.0) * delta)
 
 
-## Touchdown: keep the part of the motion that runs along the face. Coming down onto a
-## down-slope turns the fall into speed; slamming into an up-slope costs speed. A dive (Down held) is for getting
-## down, not for going faster, so it never adds speed.
-func _land(slope: float) -> void:
-	var along := Vector2.from_angle(slope)
-	var kept := Vector2(speed, velocity.y).dot(along) * along.x
-	if crouching:
-		kept = minf(kept, speed)
-	speed = clampf(maxf(kept, min_speed), min_speed, max_speed)
+## Touchdown: the board slaps the water down, the harder the fall the bigger the dip and the ripples after it.
+func _land() -> void:
+	var fall := velocity.y - water.surface_velocity_y(position.x)
+	if fall > 0.0:
+		var dt := 1.0 / Engine.physics_ticks_per_second
+		water.push(position.x, splash_radius, -fall * splash_strength / dt, dt)
 
 
 func _tumble(delta: float) -> void:

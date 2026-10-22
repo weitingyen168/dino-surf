@@ -26,6 +26,13 @@ const PIXEL_SPRITES := [
 	["buoy.png", "obstacles/buoy_float_01.png", 8],
 ]
 
+## Key icons: the white around the keycap made see-through, shrunk to 2× the HUD's text height. [source, output].
+const ICONS := [
+	["Arrow-Up.png", "ui/key_up_01.png"],
+	["Arrow-Down.png", "ui/key_down_01.png"],
+]
+const ICON_SIZE := 24
+
 ## Story slides: every image in the folder, ordered by the (n) in its name, scaled to the 1280×720 window.
 const LORE_DIR := "LORE"
 const LORE_SKIP := ["thunder_storm(4).jpg"]  # not ours to use (a photo); left out of the slideshow
@@ -75,6 +82,13 @@ func _initialize() -> void:
 			img = img.get_region(Rect2i((img.get_width() - LORE_SIZE.x) / 2, 0, LORE_SIZE.x, LORE_SIZE.y))
 		_save(img, LORE_OUT % (i + 1))
 		print("%s -> %s" % [slides[i], LORE_OUT % (i + 1)])
+	for icon in ICONS:
+		var img := Image.load_from_file(src.path_join(icon[0]))
+		img.convert(Image.FORMAT_RGBA8)
+		_clear_from_corners(img)
+		_shrink_to(img, ICON_SIZE)
+		_save(img, icon[1])
+		print("%s -> %s" % [icon[0], img.get_size()])
 	var hill_cacti := _plant_on_hills(pixel[CACTI], pixel[HILLS])
 	_save(hill_cacti, HILL_CACTI)
 	print("small cacti planted on the dunes -> %s" % HILL_CACTI)
@@ -149,6 +163,25 @@ func _plant_on_hills(cacti: Image, hills: Image) -> Image:
 				if to.y >= 0 and to.y < out.get_height():
 					out.set_pixelv(to, cacti.get_pixelv(p))
 	return out
+
+
+## Makes the near-white background reachable from the corners transparent (flood fill), leaving white inside the
+## art (like a key's arrow) alone.
+func _clear_from_corners(img: Image) -> void:
+	var w := img.get_width()
+	var h := img.get_height()
+	var todo: Array[Vector2i] = [Vector2i(0, 0), Vector2i(w - 1, 0), Vector2i(0, h - 1), Vector2i(w - 1, h - 1)]
+	var seen := {}
+	while not todo.is_empty():
+		var p: Vector2i = todo.pop_back()
+		if p.x < 0 or p.y < 0 or p.x >= w or p.y >= h or seen.has(p):
+			continue
+		seen[p] = true
+		var c := img.get_pixelv(p)
+		if c.a > 0.0 and minf(c.r, minf(c.g, c.b)) < 0.85:
+			continue
+		img.set_pixelv(p, Color(0, 0, 0, 0))
+		todo.append_array([p + Vector2i.RIGHT, p + Vector2i.LEFT, p + Vector2i.DOWN, p + Vector2i.UP])
 
 
 ## First drawn row in a column of the art.

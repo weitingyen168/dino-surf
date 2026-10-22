@@ -12,6 +12,7 @@ const BODY := Vector2(0.58, 0.45)  # the body's middle, as a fraction of a frame
 @export var fly_speed: float = 60.0  # px/s it flies toward the dino on top of the ocean's scroll
 @export var wingspan: float = 60.0  # sets the hit box, which is just the body and inner wings
 @export var flap_fps: float = 14.0
+@export var sprite_scale: float = 1.3  # drawn this much bigger, to read easily; the hit box stays the same
 
 var water: Water
 var altitude := 200.0  # screen y it cruises at
@@ -22,6 +23,7 @@ var _phase := randf() * TAU  # so gulls don't all bob and flap in step
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR  # drawn scaled; smooth, not jagged
+	scale = Vector2.ONE * sprite_scale
 
 
 ## Body plus the inner wings, in world space. The flapping tips don't count, to be fair.

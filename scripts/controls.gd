@@ -4,7 +4,8 @@ extends Node
 ## Up (or a click / tap) spins the board: a cactus caught by the spin (Dino.slash_rect) is sliced in half, a gull is
 ## killed, and you surf on. Mistime it and you hit them as usual. One spin per jump, given back by every kill, so
 ## you can chain them. Down crouches (and fast-falls in the air); Down then Up (within leap_window) leaps, with a
-## free takeoff spin. Space bulges the water up just in front of the dino, a ramp to fly off.
+## free takeoff spin. Left / Right lean the water back / forward a little: forward (downhill) is faster, back is
+## slower (Main turns `lean` into tilt and speed). Space bulges the water up just in front of the dino, a ramp.
 
 @export var water: Water
 @export var dino: Dino
@@ -13,6 +14,11 @@ extends Node
 @export var leap_window: float = 0.35  # seconds after letting go of Down in which Up still leaps
 @export var spin_buffer: float = 0.25  # an Up press while the spin isn't ready yet still spins if it's ready this soon
 
+@export_group("Lean (Left / Right)")
+@export var lean_deg: float = 5.0  # how far a full lean tips the water, on top of the pace's own tilt
+@export var lean_speed: float = 0.2  # a full lean forward / back makes the dino this much faster / slower (0.2 = ±20%)
+@export var lean_response: float = 5.0  # how quickly the lean eases in and out
+
 @export_group("Bulge (Space)")
 @export var bulge_offset: float = 50.0  # centre of the bulge, relative to the dino; + = in front
 @export var bulge_radius: float = 45.0
@@ -20,6 +26,8 @@ extends Node
 
 var _leap_window_left := 0.0  # > 0 while Down is held or was just let go: an Up press now leaps
 var _spin_buffer_left := 0.0  # > 0 after an Up press that couldn't spin yet: keep trying
+var lean := 0.0  # -1 = full lean back, 1 = full lean forward, eased
+var _lean_vel := 0.0
 
 
 func _enter_tree() -> void:
@@ -29,17 +37,23 @@ func _enter_tree() -> void:
 func reset() -> void:
 	_leap_window_left = 0.0
 	_spin_buffer_left = 0.0
+	lean = 0.0
+	_lean_vel = 0.0
 
 
 ## True on the tick any game control is first pressed. Used to retry after a wipeout.
 func any_just_pressed() -> bool:
-	for action in ["up", "down", "bulge"]:
+	for action in ["up", "down", "bulge", "lean_back", "lean_forward"]:
 		if Input.is_action_just_pressed(action):
 			return true
 	return false
 
 
 func _physics_process(delta: float) -> void:
+	# A critically damped spring toward the held direction: eases in and out, never overshoots.
+	var target := Input.get_axis("lean_back", "lean_forward")
+	_lean_vel += (lean_response * lean_response * (target - lean) - 2.0 * lean_response * _lean_vel) * delta
+	lean += _lean_vel * delta
 	if Input.is_action_pressed("bulge"):
 		water.push(dino.position.x + bulge_offset, bulge_radius, bulge_strength, delta)
 	_spin_input(_leap_input(delta), delta)
@@ -77,6 +91,8 @@ func _setup_input() -> void:
 		"up": [KEY_UP, KEY_W],
 		"down": [KEY_DOWN, KEY_S],
 		"bulge": [KEY_SPACE],
+		"lean_back": [KEY_LEFT, KEY_A],
+		"lean_forward": [KEY_RIGHT, KEY_D],
 	}
 	for action in keys:
 		if InputMap.has_action(action):

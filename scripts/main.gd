@@ -3,7 +3,7 @@ extends Node2D
 ## sessions), ends the run on a
 ## wipeout and restarts it. R resets.
 ## Everything else is its own node; tree order is tick order, so the input and spawning run before the water moves:
-##   Controls         player input -> leap, spin, fast fall, bulge
+##   Controls         player input -> leap, spin, fast fall, lean, bulge
 ##   Tsunami          the always-on hump behind the dino
 ##   ObstacleSpawner  plants cacti the player can clear, reports slices and hits
 ##   GullSpawner      sends in seagulls, reports kills and hits
@@ -26,9 +26,10 @@ extends Node2D
 @export var combo_window_s: float = 2.0
 
 @export_group("Pace")
-## Like the Chrome Dino, the run speeds up steadily the longer you last, from pace_start_speed to pace_end_speed
-## by pace_ramp_points; the waves carry the dino up and down but don't change its speed. To show it, the water
-## tilts downhill toward the dino's way (only the water: the sand and the camera stay level).
+## Like the Chrome Dino, the run speeds up steadily as your score (combo points included) climbs, from
+## pace_start_speed to pace_end_speed by pace_ramp_points; the waves carry the dino up and down but don't change its
+## speed. To show it, the water tilts downhill toward the dino's way (only the water: the sand and the camera stay
+## level). The player's lean (Controls, Left / Right) adds a little tilt and speed on top.
 @export var pace_start_speed: float = 260.0
 @export var pace_end_speed: float = 680.0
 @export var pace_tilt_deg: float = 12.0
@@ -55,7 +56,7 @@ extends Node2D
 @onready var invert: InvertScreen = $Invert
 @onready var view: View3D = $View3D
 
-var distance := 0.0  # surfed this run, in points; drives the pace
+var distance := 0.0  # surfed this run, in points
 var bonus := 0.0  # combo points this run
 var combo := 0  # kills in a row
 var best := 0.0
@@ -106,9 +107,9 @@ func _physics_process(delta: float) -> void:
 		if _game_over_time > retry_delay and controls.any_just_pressed():
 			restart()
 		return
-	var pace := clampf(distance / pace_ramp_points, 0.0, 1.0)
-	water.tilt = deg_to_rad(pace_tilt_deg) * pace
-	dino.speed = lerpf(pace_start_speed, pace_end_speed, pace)
+	var pace := clampf(score() / pace_ramp_points, 0.0, 1.0)
+	water.tilt = deg_to_rad(pace_tilt_deg * pace + controls.lean_deg * controls.lean)
+	dino.speed = lerpf(pace_start_speed, pace_end_speed, pace) * (1.0 + controls.lean_speed * controls.lean)
 	water.speed = dino.speed
 	distance += water.speed * delta / 10.0
 	_combo_left -= delta

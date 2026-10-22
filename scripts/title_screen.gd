@@ -9,6 +9,8 @@ signal started  # the player pressed a key to surf
 const STRIP := preload("res://art/ui/title_handheld_01.png")
 const KEY_UP := preload("res://art/ui/key_up_01.png")
 const KEY_DOWN := preload("res://art/ui/key_down_01.png")
+const KEY_LEFT := preload("res://art/ui/key_left_01.png")
+const KEY_RIGHT := preload("res://art/ui/key_right_01.png")
 const HINT := Color("8a8a8a")
 const FRAME := Vector2(50, 50)  # one frame of the strip, in art px
 const FRAME_S := 0.1  # seconds per frame, as in the GIF
@@ -55,7 +57,7 @@ func _ready() -> void:
 	var title := _label("DINO SURF", 32, Color.WHITE)
 	_prompt = _label("Press any key to surf" if _awake else "Click to turn on sound", 8, Color("c8c8c8"))
 	var spin_keys := _key_row([KEY_UP, "spin: cuts cacti & seagulls"])
-	var other_keys := _key_row([KEY_DOWN, KEY_UP, "leap + spin", "   ", KEY_DOWN, "fast fall"])
+	var other_keys := _key_row([KEY_DOWN, KEY_UP, "leap + spin", "  ", KEY_DOWN, "fall", "  ", KEY_LEFT, KEY_RIGHT, "lean"])
 	var column := VBoxContainer.new()
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_theme_constant_override("separation", 0)  # four lines on a small screen

@@ -30,6 +30,8 @@ const PIXEL_SPRITES := [
 const ICONS := [
 	["Arrow-Up.png", "ui/key_up_01.png"],
 	["Arrow-Down.png", "ui/key_down_01.png"],
+	["Arrow-Left.png", "ui/key_left_01.png"],
+	["Arrow-Right.png", "ui/key_right_01.png"],
 ]
 const ICON_SIZE := 24
 

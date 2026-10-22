@@ -14,7 +14,7 @@ The Chrome Dino desert has flooded. You don't control the dino — you control t
 Markers on the right edge warn of what's coming (green cactus, red buoy, white gull), at the height you'll meet it.
 
 Surf as far as you can. The score (top right, Chrome Dino style) is the distance; your best is saved.
-Like the Chrome Dino, the pace picks up steadily the longer you last (and the water tilts downhill to show it);
+Like the Chrome Dino, the pace picks up steadily as your score climbs (combos count) (and the water tilts downhill to show it);
 the waves carry you up and down, and splash when you land, but never change your speed, and the colours flip every 1000 points. Kills in a row build a combo for bonus points (25, 50, 75...);
 from three in a row a big COMBO counter shows up (it's at full speed around 3500 points); now and then
 a buoy floats by.
@@ -24,6 +24,7 @@ A spin that misses leaves the dino panicked (scared face, red board) until it la
 | --- | --- |
 | Down, then Up | Leap, spinning |
 | Down (in the air) | Fast fall |
+| Left / Right | Lean the water back / forward a little: slower / faster |
 | Up (or click / tap) | Spin the board (a leap comes with a free spin, so Up mid-air still spins) (on the water or in the air, one per jump): slices a cactus, knocks a gull away. Buoys are solid: go over them |
 | Space | Bulge the water ahead into a ramp |
 | R | Restart |

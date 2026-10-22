@@ -12,16 +12,19 @@ The Chrome Dino desert has flooded. You don't control the dino — you control t
 ## How to play
 
 Surf as far as you can. The score (top right, Chrome Dino style) is the distance; your best is saved.
-Cacti and seagulls start sparse and get denser over about two minutes of surfing.
+Cacti and seagulls start sparse and get denser over about two minutes of surfing; now and then a buoy floats by.
+A spin that misses leaves the dino panicked (scared face, red board) until it lands: no spin left.
 
 | Key | Action |
 | --- | --- |
 | Left / Right (or hold either half of the screen) | Tilt the world: speed up / slow down; in the air, shift where you land |
 | Down, then Up | Leap |
-| X / Shift | Spin: slices a cactus or knocks a gull |
+| X / Shift | Spin the board: slices a cactus, knocks a gull or buoy away |
 | Space | Bulge the water ahead into a ramp |
 | R | Restart |
 | V | Switch between the 3D pop-up view and the flat 2D view |
+| L (start screen) | Story: the lore slideshow (or click the Story button) |
+| M | Mute / unmute |
 
 ## Publishing to itch.io
 
@@ -53,8 +56,9 @@ The `Web` export preset is set up for itch.io (single-threaded, so it runs witho
 | `Dino` | `dino.gd` | Floating, surfing, leaping, spinning, crashing |
 | `Camera2D` | `game_camera.gd` | Follow, lean with the tilt, shake |
 | `View3D` | `view_3d.gd` | Redraws the 2D game as a 3D pop-up book: each layer on a paper card at its own depth, the water extruded into a slab. V toggles the flat view |
-| `HUD` | `hud.gd` | Stats line and the WIPEOUT screen |
-| `HUD/Title` | `title_screen.gd` | Start screen: the animated handheld (`art/ui/title_handheld_01.png`, made from the artist's GIF with `tools/gif_to_strip.py`) over the paused game; any key starts |
+| `Sounds` | `sounds.gd` | Ocean waves on the start screen, the surf theme during a run, wipeout and spin sounds, a chime every 1000 points |
+| `HUD` | `hud.gd` | Score and the WIPEOUT screen |
+| `HUD/Title` | `title_screen.gd`, `lore_slideshow.gd` | Start screen: the animated handheld (`art/ui/title_handheld_01.png`, made from the artist's GIF with `tools/gif_to_strip.py`) over the paused game; any key starts |
 
 ## 3D pop-up view
 

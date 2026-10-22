@@ -2,13 +2,15 @@ class_name FlightPlanner
 ## Answers "where can debris go so the player can still fly over it?" for ObstacleSpawner.
 ## Plays the dino forward on the swell alone (the spring ripples are small) with a full forward tilt from
 ## right now: same physics as Dino._float, same tilt spring as Controls. The swells travel, so it steps time
-## too; debris stays put in world space and is planted, so its top doesn't move.
+## too; debris stays put in world space. Planted debris (cacti) has a fixed top; floating debris (a buoy) rides
+## the swell, so its top moves with the water under it.
 
 
 ## World positions (screen x + scroll) from screen x `from_x` to `from_x + reach` where debris `width` wide,
 ## with its top at screen y `top_y`, would be cleared by the first flight a full forward tilt produces.
+## `rides_height` > 0 means it floats instead: its top is that far above the swell, wherever the swell is then.
 static func clearable_spots(d: Dino, water: Water, controls: Controls, from_x: float, reach: float,
-		width: float, top_y: float) -> Array[float]:
+		width: float, top_y: float, rides_height: float = 0.0) -> Array[float]:
 	var dt := 1.0 / Engine.physics_ticks_per_second
 	var target := deg_to_rad(controls.max_tilt_deg)
 	var s := water.scroll()
@@ -69,7 +71,7 @@ static func clearable_spots(d: Dino, water: Water, controls: Controls, from_x: f
 		var clear := _covered(flights, x - width / 2.0 - 14.0, x + width / 2.0 + 12.0)
 		for p in flights:
 			if clear and p.x + 12.0 > x - width / 2.0 and p.x - 14.0 < x + width / 2.0:
-				clear = p.y <= top_y
+				clear = p.y <= (water.swell_y(x, p.z) - rides_height if rides_height > 0.0 else top_y)
 		if clear:
 			spots.append(x)
 		x += 4.0

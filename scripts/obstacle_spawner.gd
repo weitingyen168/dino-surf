@@ -1,7 +1,8 @@
 class_name ObstacleSpawner
 extends Node
-## Plants cacti in from the right edge, only where the player can actually clear them (see FlightPlanner),
-## and checks the dino against them: a spin slices one (`cactus_sliced`), a body hit ends the run (`dino_hit`).
+## Plants cacti (and now and then floats a buoy) in from the right edge, only where the player can actually clear
+## them (see FlightPlanner), and checks the dino against them: a spin slices one (`cactus_sliced`), a body hit
+## ends the run (`dino_hit`).
 ## Spawned cacti go into `container`, which sits before the Dino in the tree so they draw behind it.
 
 signal dino_hit(reason: String)
@@ -21,6 +22,7 @@ signal cactus_sliced
 @export var clear_margin_px: float = 8.0
 @export var plan_reach_px: float = 700.0  # how far past spawn_x to look for a spot
 @export var retry_spawn_px: float = 60.0  # no clearable spot in reach: look again after this far
+@export var buoy_chance: float = 0.12  # chance each piece of debris is a buoy instead of a cactus
 
 @export_group("Ramp")
 ## Gaps start this many times wider, then shrink to end_gap_scale over ramp_px of surfing: an easy start
@@ -59,7 +61,7 @@ func _physics_process(delta: float) -> void:
 			cactus_sliced.emit()
 			continue
 		if body.intersects(o.hit_rect()):
-			dino_hit.emit("Hit a cactus")
+			dino_hit.emit("Hit a buoy" if o is Buoy else "Hit a cactus")
 			return
 
 
@@ -69,19 +71,22 @@ func _gap() -> float:
 
 ## Returns false, spawning nothing, when no spot in reach can be cleared from the dino's current state.
 func _spawn() -> bool:
-	var o := Obstacle.new()
+	var buoy := randf() < buoy_chance
+	var o: Obstacle = Buoy.new() if buoy else Obstacle.new()
 	o.water = water
 	# Cacti: tall saguaros with arms, or short stubby ones. A real leap or flight needed to clear them.
-	if randf() < 0.6:
-		o.size = Vector2(randf_range(12, 16), randf_range(120, 150))
-		o.arms = 2 if randf() < 0.6 else 1
-	else:
-		o.size = Vector2(randf_range(16, 20), randf_range(75, 95))
-		o.arms = 1 if randf() < 0.5 else 0
-	o.sunk = 0.15
+	# A buoy sets its own size.
+	if not buoy:
+		if randf() < 0.6:
+			o.size = Vector2(randf_range(12, 16), randf_range(120, 150))
+			o.arms = 2 if randf() < 0.6 else 1
+		else:
+			o.size = Vector2(randf_range(16, 20), randf_range(75, 95))
+			o.arms = 1 if randf() < 0.5 else 0
+		o.sunk = 0.15
 	# Sit it under a flight the player can actually make, so the answer is "hit that crest fast and fly over".
 	var spots := FlightPlanner.clearable_spots(dino, water, controls, spawn_x, plan_reach_px,
-		o.size.x, water.base_y - o.size.y * (1.0 - o.sunk) - clear_margin_px)
+		o.size.x, water.base_y - o.size.y * (1.0 - o.sunk) - clear_margin_px, o.size.y + clear_margin_px if buoy else 0.0)
 	var x: float
 	if not spots.is_empty():
 		x = spots.pick_random() - water.scroll()
@@ -90,7 +95,8 @@ func _spawn() -> bool:
 	else:
 		o.free()
 		return false
-	o.position = Vector2(x, water.base_y)  # planted at the calm waterline; the swell moves around it
+	# A cactus is planted at the calm waterline (the swell moves around it); a buoy floats on the swell.
+	o.position = Vector2(x, water.surface_y(x) if buoy else water.base_y)
 	container.add_child(o)
 	obstacles.append(o)
 	return true

@@ -10,6 +10,8 @@ extends Node2D
 ## Landing is always safe; only debris ends a run.
 ## The node's origin is where the board touches the water.
 
+signal spun  # a spin attack started (in the air; the spin button's hop off the water doesn't count)
+
 const DINO_RIDE := preload("res://art/dino/dino_ride_01.png")
 const DINO_SCARED := preload("res://art/dino/dino_scared_01.png")
 const BOARD_RIDE := preload("res://art/dino/board_ride_01.png")
@@ -22,6 +24,12 @@ const BODY_X := 0.6  # the body's centre, as a fraction of the art's width (the 
 @export var water: Water
 @export var gravity: float = 600.0
 @export var scared_fall_speed: float = 250.0  # falling faster than this (px/s) pulls the scared face
+
+@export_group("Colour")
+## The art's greens are recoloured (shaders/recolor_greens.gdshader) so the dino stands out against the sand,
+## sky and water. 0.78 = purple; set brightness 1 and hue 0.33 for the original green.
+@export_range(0.0, 1.0) var body_hue: float = 0.78
+@export_range(0.0, 2.0) var body_brightness: float = 0.8
 @export var home_x: float = 220.0
 
 @export_group("Speed")
@@ -68,10 +76,16 @@ var _slash_left := 0.0  # > 0 while spinning
 var _slash_cooldown := 0.0
 var _air_spun := false  # already spun since leaving the water: only one spin per jump
 var _refunded := false  # this spin hit something: no cooldown when it ends
+var _panic := false  # the last spin hit nothing: scared face and red board until back on the water
 
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR  # the art rotates with the face; smooth, not jagged
+	var recolor := ShaderMaterial.new()
+	recolor.shader = preload("res://shaders/recolor_greens.gdshader")
+	recolor.set_shader_parameter("hue", body_hue)
+	recolor.set_shader_parameter("brightness", body_brightness)
+	material = recolor
 
 
 func reset() -> void:
@@ -90,6 +104,7 @@ func reset() -> void:
 	_slash_cooldown = 0.0
 	_air_spun = false
 	_refunded = false
+	_panic = false
 	rotation = 0.0
 	position = Vector2(home_x, water.surface_y(home_x))
 	reset_physics_interpolation()  # teleport, don't slide from where it wiped out
@@ -101,7 +116,8 @@ func hit_rect() -> Rect2:
 
 
 ## The spin button (scheme D). On the water it doesn't spin, it just kicks the dino straight up off the surface
-## by spin_lift. In the air it spins (slashing) and kicks up. Returns false while crashed, cooling down, or
+## by spin_lift. In the air the board spins under the dino (slashing) and it kicks up; a spin that hits nothing
+## leaves it panicked (scared face, red board) until it lands. Returns false while crashed, cooling down, or
 ## already spun on this jump.
 func spin() -> bool:
 	if crashed or _slash_left > 0.0 or _slash_cooldown > 0.0 or (_air_spun and not on_surface):
@@ -115,6 +131,7 @@ func spin() -> bool:
 		_touching = false
 		return true  # just a hop: the air spin is still yours
 	_slash_left = spin_duration
+	spun.emit()
 	if spin_lift > 0.0:
 		velocity.y = minf(velocity.y, 0.0) - spin_lift  # straight up: cancel any fall, then kick
 	_air_spun = true
@@ -200,20 +217,22 @@ func _float(delta: float) -> void:
 	if on_surface:
 		_air_time = 0.0
 		_air_spun = false
+		_panic = false
 	elif _air_time <= coyote_s:
 		_air_time += delta
 
 	# On the water the board follows the face; in the air the nose follows the arc.
 	var target := slope if on_surface else clampf(atan2(velocity.y, speed), -0.7, 0.7)
+	# The dino stays upright while the board under it spins (drawn in _draw).
 	if _slash_left > 0.0:
 		_slash_left -= delta
-		rotation += TAU / spin_duration * delta  # one full turn, then settle back onto the face
 		if _slash_left <= 0.0:
 			_slash_cooldown = 0.0 if _refunded else spin_cooldown
+			_panic = not _refunded  # whiffed: nothing to cut, and no spin left until the water
 			_refunded = false
 	else:
 		_slash_cooldown = maxf(_slash_cooldown - delta, 0.0)
-		rotation = lerp_angle(rotation, target, (12.0 if on_surface else 4.0) * delta)
+	rotation = lerp_angle(rotation, target, (12.0 if on_surface else 4.0) * delta)
 
 
 ## Touchdown: keep the part of the motion that runs along the face. Coming down onto a
@@ -271,16 +290,22 @@ func _process(_delta: float) -> void:
 func _draw() -> void:
 	var board := Rect2(BOARD_OFFSET, BOARD_RIDE.get_size() * ART_SCALE)
 	if not crashed:
-		draw_texture_rect(BOARD_RIDE, board, false)
+		# The spin attack spins the board, one full turn about its middle, like a blade under the dino's feet.
+		var spin := TAU * (1.0 - _slash_left / spin_duration) if slashing() else 0.0
+		var middle := board.get_center()
+		draw_set_transform(middle, spin)
+		draw_texture_rect(BOARD_SCARED if _panic else BOARD_RIDE, Rect2(-board.size / 2.0, board.size), false)
+		if slashing():
+			# Blade trails behind both tips so it reads as a slash.
+			var fade := Color(0.33, 0.33, 0.33, 0.35 + 0.4 * spin / TAU)
+			for tip in [0.0, PI]:
+				draw_arc(Vector2.ZERO, board.size.x / 2.0, tip - 1.6, tip, 10, fade, 3.0)
+		draw_set_transform(Vector2.ZERO)
 	var body := DINO_RIDE.get_size() * ART_SCALE
 	var squash := 0.85 if crouching and not crashed else 1.0  # crouch: ready to leap
-	var scared := crashed or (not on_surface and velocity.y > scared_fall_speed)
+	var scared := crashed or _panic or (not on_surface and velocity.y > scared_fall_speed)
 	draw_texture_rect(DINO_SCARED if scared else DINO_RIDE,
 		Rect2(-body.x * BODY_X, FEET_Y - body.y * squash, body.x, body.y * squash), false)
-	if slashing():
-		# Blade trail: an arc behind the spin so it reads as a slash.
-		var done := 1.0 - _slash_left / spin_duration
-		draw_arc(Vector2(0, -16), 26.0, -PI / 2.0 - 2.2, -PI / 2.0, 12, Color(0.33, 0.33, 0.33, 0.35 + 0.4 * done), 3.0)
 
 	# Board and spray live in world space once they leave the dino.
 	draw_set_transform_matrix(get_global_transform().affine_inverse())

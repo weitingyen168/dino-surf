@@ -20,6 +20,17 @@ const HILLS := "Other sprites/2_desertMountains.png"
 const HILL_CACTI := "backgrounds/desert_hill_cacti_01.png"
 const CACTI_SPLIT_ROW := 116  # cactus art rows above this are the small far ones; Main's Cacti backdrop starts here
 
+## Pixel art sprites on a big canvas: back to 1 px per art pixel, then cropped to what's drawn.
+## [source, output, block size]: given, since soft-edged exports fool _block_size.
+const PIXEL_SPRITES := [
+	["buoy.png", "obstacles/buoy_float_01.png", 8],
+]
+
+## Story slides: every image in the folder, ordered by the (n) in its name, scaled to the 1280×720 window.
+const LORE_DIR := "LORE"
+const LORE_OUT := "ui/lore_%02d.png"
+const LORE_SIZE := Vector2i(1280, 720)
+
 ## Animations: a folder of frames (in name order) -> one strip, frames left to right, sharing one crop.
 ## [folder, output, output frame height in px].
 const ANIMS := [
@@ -45,6 +56,24 @@ func _initialize() -> void:
 		_save(img, PIXEL[from])
 		pixel[from] = img
 		print("%s: %d× blocks -> %s" % [from, block, img.get_size()])
+	for sprite in PIXEL_SPRITES:
+		var img := Image.load_from_file(src.path_join(sprite[0]))
+		var block: int = sprite[2]
+		img.resize(img.get_width() / block, img.get_height() / block, Image.INTERPOLATE_NEAREST)
+		img = img.get_region(img.get_used_rect())
+		_save(img, sprite[1])
+		print("%s: %d× blocks -> %s" % [sprite[0], block, img.get_size()])
+	var slides := Array(DirAccess.get_files_at(src.path_join(LORE_DIR)))
+	var number := RegEx.create_from_string("[(]([0-9]+)[)]")  # the (n) in a slide's name
+	slides.sort_custom(func(a, b): return int(number.search(a).get_string(1)) < int(number.search(b).get_string(1)))
+	for i in slides.size():
+		var img := Image.load_from_file(src.path_join(LORE_DIR).path_join(slides[i]))
+		img.convert(Image.FORMAT_RGB8)
+		_shrink_to(img, LORE_SIZE.y)
+		if img.get_width() != LORE_SIZE.x:  # not 16:9: crop the middle
+			img = img.get_region(Rect2i((img.get_width() - LORE_SIZE.x) / 2, 0, LORE_SIZE.x, LORE_SIZE.y))
+		_save(img, LORE_OUT % (i + 1))
+		print("%s -> %s" % [slides[i], LORE_OUT % (i + 1)])
 	var hill_cacti := _plant_on_hills(pixel[CACTI], pixel[HILLS])
 	_save(hill_cacti, HILL_CACTI)
 	print("small cacti planted on the dunes -> %s" % HILL_CACTI)

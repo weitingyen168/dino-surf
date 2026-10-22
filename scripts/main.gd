@@ -12,8 +12,10 @@ extends Node2D
 ##   Dino             the surfer
 ##   Camera2D         follow, lean and shake
 ##   View3D           redraws all of the above as a 3D pop-up book (V: flat 2D view)
+##   Sounds           music and sound effects
 ##   HUD              score, the WIPEOUT screen, and the start screen (HUD/Title) that holds the game paused
 
+@export var milestone_points: float = 1000.0  # a chime every this many points
 @export var retry_delay: float = 0.8  # seconds after a wipeout before a press restarts, so a held button doesn't skip the screen
 
 @export_group("Wipeout")
@@ -32,6 +34,7 @@ extends Node2D
 @onready var dino: Dino = $Dino
 @onready var camera: GameCamera = $Camera2D
 @onready var hud: Hud = $HUD
+@onready var sounds: Sounds = $Sounds
 
 var distance := 0.0
 var best := 0.0
@@ -53,7 +56,13 @@ func _ready() -> void:
 	obstacle_spawner.cactus_sliced.connect(_on_cactus_sliced)
 	gull_spawner.dino_hit.connect(_lose)
 	gull_spawner.gull_knocked.connect(func(): camera.shake(hit_shake_px))
+	dino.spun.connect(sounds.spin)
 	restart()
+	# The start screen holds the first run: ocean waves until the player starts, then the music.
+	var title := get_node_or_null("HUD/Title") as TitleScreen
+	if title and not title.is_queued_for_deletion():
+		sounds.menu()
+		title.started.connect(sounds.run_started)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -72,7 +81,10 @@ func _physics_process(delta: float) -> void:
 			restart()
 		return
 	water.speed = dino.speed
+	var before := distance
 	distance += water.speed * delta / 10.0
+	if floorf(distance / milestone_points) > floorf(before / milestone_points):
+		sounds.milestone()
 	best = maxf(best, distance)
 
 
@@ -91,6 +103,7 @@ func _lose(reason: String) -> void:
 	game_over = true
 	_game_over_time = 0.0
 	wipeouts += 1
+	sounds.wipeout()
 	dino.crash()
 	camera.shake(crash_shake_px)
 	_set_running(false)
@@ -116,6 +129,7 @@ func restart() -> void:
 	obstacle_spawner.reset()
 	gull_spawner.reset()
 	_set_running(true)
+	sounds.run_started()
 
 
 ## Freezes (or unfreezes) the input, the tsunami, spawning and every hazard, so the wipeout plays out on a still scene.

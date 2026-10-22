@@ -1,7 +1,10 @@
 class_name TitleScreen
 extends Control
 ## Start screen: the animated handheld (the artist's Animation.GIF, as a strip) with the title on its dark lower
-## screen, over the paused game. Any key, click or tap starts the run. Launch with `-- --skip-title` to skip it.
+## screen, over the paused game. Any key, click or tap starts the run; the Story button (or L) opens the lore
+## slideshow instead. Launch with `-- --skip-title` to skip it.
+
+signal started  # the player pressed a key to surf
 
 const STRIP := preload("res://art/ui/title_handheld_01.png")
 const FRAME := Vector2(50, 50)  # one frame of the strip, in art px
@@ -14,6 +17,10 @@ const PANEL := Rect2(3, 23, 44, 15)  # the handheld's dark lower screen, in art 
 var _handheld := TextureRect.new()
 var _atlas := AtlasTexture.new()
 var _prompt := Label.new()
+var _lore: LoreSlideshow  # open while valid
+# Browsers keep a page silent until the player clicks or presses a key, so on the web the first press only
+# turns the sound on (the menu waves are already playing, just muted); the next one starts the run.
+var _awake := not OS.has_feature("web")
 var _t := 0.0
 var _frames := 0
 
@@ -24,8 +31,10 @@ func _ready() -> void:
 		return
 	process_mode = Node.PROCESS_MODE_ALWAYS  # it runs while the game behind it is paused
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE  # clicks that miss the Story button start the run (_unhandled_input)
 
 	var dim := ColorRect.new()
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dim.color = Color(0, 0, 0, 0.35)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(dim)
@@ -37,22 +46,51 @@ func _ready() -> void:
 	_handheld.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_handheld.stretch_mode = TextureRect.STRETCH_SCALE
 	_handheld.size = FRAME * art_scale
+	_handheld.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_handheld)
 
 	var title := _label("DINO SURF", 32, Color.WHITE)
-	_prompt = _label("Press any key to surf", 8, Color("c8c8c8"))
+	_prompt = _label("Press any key to surf" if _awake else "Click to turn on sound", 8, Color("c8c8c8"))
 	var keys := _label("Left/Right tilt   Down+Up leap   X spin", 8, Color("8a8a8a"))
 	var column := VBoxContainer.new()
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
+	column.add_theme_constant_override("separation", 0)  # four lines on a small screen
 	column.add_child(title)
 	column.add_child(_prompt)
 	column.add_child(keys)
+	column.add_child(_story_button())
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_handheld.add_child(column)
 	column.position = PANEL.position * art_scale
 	column.size = PANEL.size * art_scale
 
 	resized.connect(_layout)
 	_layout()
+
+
+## A small framed button on the handheld's screen that opens the lore slideshow.
+func _story_button() -> Button:
+	var button := Button.new()
+	button.text = "Story (L)"
+	button.focus_mode = Control.FOCUS_NONE  # keys start the run; only a click or L opens the story
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	button.add_theme_font_size_override("font_size", 8)
+	for state in ["normal", "hover", "pressed"]:
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color("333333") if state == "normal" else Color("555555")
+		style.border_color = Color("c8c8c8")
+		style.set_border_width_all(1)
+		style.set_content_margin_all(3)
+		style.content_margin_left = 8
+		style.content_margin_right = 8
+		button.add_theme_stylebox_override(state, style)
+	button.pressed.connect(_open_lore)
+	return button
+
+
+func _open_lore() -> void:
+	_lore = LoreSlideshow.new()
+	add_child(_lore)
 
 
 func _label(text: String, font_size: int, color: Color) -> Label:
@@ -78,10 +116,21 @@ func _process(delta: float) -> void:
 	_prompt.visible = fmod(_t, blink_s * 2.0) < blink_s
 
 
-func _input(event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
+	if is_instance_valid(_lore):
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_L:
+		get_viewport().set_input_as_handled()
+		_open_lore()
+		return
 	var pressed: bool = (event is InputEventKey and event.pressed and not event.echo) \
 		or (event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed)
-	if pressed:
+	if pressed and not _awake:
+		get_viewport().set_input_as_handled()
+		_awake = true
+		_prompt.text = "Press any key to surf"
+	elif pressed:
 		get_viewport().set_input_as_handled()
 		get_tree().paused = false
+		started.emit()
 		queue_free()

@@ -43,6 +43,7 @@ const BODY_X := 0.6  # the body's centre, as a fraction of the art's width (the 
 @export var leap_speed: float = 360.0  # upward kick of a leap (scheme C); height is about leap_speed² / (2 × gravity)
 @export var coyote_s: float = 0.12  # a leap still works this long after leaving the water
 @export var air_control: float = 400.0  # px/s² the ocean speeds up / slows down while you steer in the air
+@export var dive_force: float = 1400.0  # px/s² extra pull down while Down is held: a fast fall in the air
 
 @export_group("Spin slice")
 @export var spin_duration: float = 0.3  # seconds for one full spin; the slash is live the whole time
@@ -62,7 +63,7 @@ var tilt := 0.0  # world tilt in radians, + = tipped down toward the direction o
 var on_surface := true
 var crashed := false
 var air_input := 0.0  # -1..1, steering in the air (scheme C); set by Main
-var crouching := false  # holding Down, ready to leap; set by Main
+var crouching := false  # holding Down: ready to leap, and pulled down by dive_force; set by Main
 var _air_time := 0.0
 
 var _touching := true  # in contact since the last time it got clear of stick_range
@@ -211,6 +212,8 @@ func _float(delta: float) -> void:
 	if depth < 0.0:
 		speed += air_control * air_input * delta  # steering in the air moves the whole ocean under you
 	speed = clampf(speed, min_speed, max_speed)
+	if crouching:
+		accel += dive_force  # on the water buoyancy takes most of it; in the air it's a fast fall
 	velocity.y += accel * delta
 	position.y += velocity.y * delta
 	on_surface = depth > -1.0

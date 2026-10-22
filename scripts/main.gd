@@ -16,6 +16,13 @@ extends Node2D
 ##   HUD              score, the WIPEOUT screen, and the start screen (HUD/Title) that holds the game paused
 
 @export var milestone_points: float = 1000.0  # a chime every this many points
+
+@export_group("Pace")
+## Like the Chrome Dino, the run speeds up the longer you last: the dino's slowest speed (what it coasts down to)
+## and its top speed rise with the score, reaching these by pace_ramp_points.
+@export var pace_min_speed: float = 560.0
+@export var pace_max_speed: float = 900.0
+@export var pace_ramp_points: float = 5000.0
 @export var retry_delay: float = 0.8  # seconds after a wipeout before a press restarts, so a held button doesn't skip the screen
 
 @export_group("Wipeout")
@@ -41,6 +48,8 @@ var best := 0.0
 var wipeouts := 0
 var sliced := 0
 var game_over := false
+var _base_min_speed := 0.0  # the dino's own speeds, which the pace ramps up from
+var _base_max_speed := 0.0
 var _game_over_time := 0.0
 
 
@@ -49,6 +58,8 @@ const SAVE_PATH := "user://dino_surf.cfg"  # on the web this lives in the browse
 
 func _ready() -> void:
 	get_tree().physics_interpolation = true
+	_base_min_speed = dino.min_speed
+	_base_max_speed = dino.max_speed
 	var save := ConfigFile.new()
 	if save.load(SAVE_PATH) == OK:
 		best = save.get_value("score", "best", 0.0)
@@ -80,6 +91,9 @@ func _physics_process(delta: float) -> void:
 		if _game_over_time > retry_delay and controls.any_just_pressed():
 			restart()
 		return
+	var pace := clampf(distance / pace_ramp_points, 0.0, 1.0)
+	dino.min_speed = lerpf(_base_min_speed, pace_min_speed, pace)
+	dino.max_speed = lerpf(_base_max_speed, pace_max_speed, pace)
 	water.speed = dino.speed
 	var before := distance
 	distance += water.speed * delta / 10.0

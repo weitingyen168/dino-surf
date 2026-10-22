@@ -25,7 +25,7 @@ A spin that misses leaves the dino panicked (scared face, red board) until it la
 | Down, then Up | Leap, spinning |
 | Down (in the air) | Fast fall |
 | Left / Right | Lean the water back / forward a little: slower / faster |
-| Up (or click / tap) | Spin the board (a leap comes with a free spin, so Up mid-air still spins) (on the water or in the air, one per jump): slices a cactus, knocks a gull away. Buoys are solid: go over them |
+| Up (or click / tap) | Spin the board and kick up; two per jump (a leap comes with a free one on top) (on the water or in the air, one per jump): slices a cactus, knocks a gull away. Buoys are solid: go over them |
 | Space | Bulge the water ahead into a ramp |
 | R | Restart |
 | V | Switch between the 3D pop-up view and the flat 2D view |

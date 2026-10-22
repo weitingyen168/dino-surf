@@ -12,6 +12,7 @@
 [ext_resource type="Script" uid="uid://rupydxmg1yfh" path="res://scripts/view_3d.gd" id="10_view3d"]
 [ext_resource type="Script" path="res://scripts/backdrop.gd" id="11_backdrop"]
 [ext_resource type="Script" path="res://scripts/title_screen.gd" id="17_title"]
+[ext_resource type="Script" path="res://scripts/sounds.gd" id="18_sounds"]
 [ext_resource type="Texture2D" path="res://art/backgrounds/desert_far_mountains_01.png" id="12_far"]
 [ext_resource type="Texture2D" path="res://art/backgrounds/desert_mountains_01.png" id="13_mountains"]
 [ext_resource type="Texture2D" path="res://art/backgrounds/desert_ground_01.png" id="14_ground"]
@@ -118,6 +119,9 @@ water = NodePath("../Water")
 background = NodePath("../Background")
 hazards = NodePath("../Hazards")
 dino = NodePath("../Dino")
+
+[node name="Sounds" type="Node" parent="."]
+script = ExtResource("18_sounds")
 
 [node name="HUD" type="CanvasLayer" parent="." unique_id=1036609310]
 script = ExtResource("9_hud")

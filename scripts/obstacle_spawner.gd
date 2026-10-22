@@ -1,8 +1,8 @@
 class_name ObstacleSpawner
 extends Node
 ## Plants cacti (and now and then floats a buoy) in from the right edge, only where the player can actually clear
-## them (see FlightPlanner), and checks the dino against them: a spin slices one (`cactus_sliced`), a body hit
-## ends the run (`dino_hit`).
+## them (see FlightPlanner), and checks the dino against them: a spin slices a cactus (`cactus_sliced`) but not a
+## buoy, and a body hit ends the run (`dino_hit`).
 ## Spawned cacti go into `container`, which sits before the Dino in the tree so they draw behind it.
 
 signal dino_hit(reason: String)
@@ -45,7 +45,8 @@ func _physics_process(delta: float) -> void:
 	for o in obstacles:
 		if o.sliced:
 			continue
-		if dino.slashing() and dino.slash_rect().intersects(o.hit_rect()):
+		# A spin cuts a cactus, but a buoy is solid: spin into one and you hit it.
+		if dino.slashing() and not o is Buoy and dino.slash_rect().intersects(o.hit_rect()):
 			o.slice(dino.position.y - 16.0)  # cut through where the dino's middle meets it
 			dino.refund_spin()
 			cactus_sliced.emit()

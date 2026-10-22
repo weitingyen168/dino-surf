@@ -116,21 +116,18 @@ func hit_rect() -> Rect2:
 	return Rect2(position + Vector2(-14, -30), Vector2(26, 30))
 
 
-## The spin button (scheme D). On the water it doesn't spin, it just kicks the dino straight up off the surface
-## by spin_lift. In the air the board spins under the dino (slashing) and it kicks up; a spin that hits nothing
-## leaves it panicked (scared face, red board) until it lands. Returns false while crashed, cooling down, or
-## already spun on this jump.
+## The spin button (scheme D): the board spins under the dino (slashing, so anything it touches is cut or knocked
+## away rather than hitting it) and the dino kicks straight up by spin_lift. Pressed on the water it hops off and
+## spins at once, so the protection starts on the press. One spin per jump; a spin that hits nothing leaves the
+## dino panicked (scared face, red board) until it lands. Returns false while crashed, cooling down, or already
+## spun on this jump.
 func spin() -> bool:
 	if crashed or _slash_left > 0.0 or _slash_cooldown > 0.0 or (_air_spun and not on_surface):
 		return false
 	if on_surface:
-		if spin_lift <= 0.0:
-			return false
-		velocity.y = minf(velocity.y, 0.0) - spin_lift
 		position.y = minf(position.y, water.surface_y(position.x) - 2.0)  # clear of the water so buoyancy lets go
 		on_surface = false
 		_touching = false
-		return true  # just a hop: the air spin is still yours
 	_slash_left = spin_duration
 	spun.emit()
 	if spin_lift > 0.0:

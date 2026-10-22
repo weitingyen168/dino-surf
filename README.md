@@ -21,7 +21,7 @@ A spin that misses leaves the dino panicked (scared face, red board) until it la
 | Left / Right (or hold either half of the screen) | Tilt the world: speed up / slow down; in the air, shift where you land |
 | Down, then Up | Leap |
 | Down (in the air) | Fast fall |
-| X / Shift | Spin the board: slices a cactus, knocks a gull or buoy away |
+| X / Shift | Spin the board (on the water or in the air, one per jump): slices a cactus, knocks a gull or buoy away |
 | Space | Bulge the water ahead into a ramp |
 | R | Restart |
 | V | Switch between the 3D pop-up view and the flat 2D view |

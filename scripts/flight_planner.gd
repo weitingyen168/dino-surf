@@ -1,9 +1,10 @@
 class_name FlightPlanner
 ## Answers "where can debris go so the player can still fly over it?" for ObstacleSpawner.
 ## Plays the dino forward on the swell alone (the spring ripples are small) from right now, with no input: same
-## physics as Dino._float. The swells travel, so it steps time too; debris stays put in world space. The water's
-## tilt (taken as it is now) adds to the slope, and moves a debris top up or down with where it is on screen. Planted debris (cacti) has a fixed top; floating debris (a buoy) rides
-## the swell, so its top moves with the water under it.
+## physics as Dino._float, at the dino's current speed (the pace sets it; the water doesn't change it). The swells
+## travel, so it steps time too; debris stays put in world space. The water's tilt (taken as it is now) moves a
+## debris top up or down with where it is on screen. Planted debris (cacti) has a fixed top; floating debris (a buoy)
+## rides the swell, so its top moves with the water under it.
 
 
 ## World positions (screen x + scroll) from screen x `from_x` to `from_x + reach` where debris `width` wide,
@@ -18,7 +19,7 @@ static func clearable_spots(d: Dino, water: Water, from_x: float, reach: float,
 	var last := first + reach
 	var y := d.position.y
 	var vy := d.velocity.y
-	var v := d.speed
+	var v := d.speed  # steady: the pace sets it, the water doesn't change it
 	var on := d.on_surface
 	var touching := d._touching
 	var flights: Array[Vector3] = []  # (dino world x, board y, time) while airborne
@@ -28,13 +29,10 @@ static func clearable_spots(d: Dino, water: Water, from_x: float, reach: float,
 		now += dt
 		var w := d.home_x + s
 		var surf := water.swell_y(w, now)
-		var slope := atan2(water.swell_y(w + 4.0, now) - water.swell_y(w - 4.0, now) + 8.0 * tan(water.tilt), 8.0)
 		var depth := y - surf
 		var accel := d.gravity
 		if depth >= 0.0:
 			if not on:
-				var along := Vector2.from_angle(slope)
-				v = clampf(maxf(Vector2(v, vy).dot(along) * along.x, d.min_speed), d.min_speed, d.max_speed)
 				if in_air and flights.back().x >= first:
 					break  # landed: only the first flight that reaches the spawn point counts, later ones depend on it
 				flights.clear()  # a flight that ends before the spawn point (e.g. the current one) doesn't help
@@ -42,13 +40,10 @@ static func clearable_spots(d: Dino, water: Water, from_x: float, reach: float,
 			var surf_vy := (surf - water.swell_y(w - v * dt, now - dt)) / dt
 			accel -= d.gravity + d.buoyancy * depth + d.water_drag * (vy - surf_vy)
 			touching = true
-			v += d.gravity * sin(slope) * cos(slope) * d.slope_gain * dt
-			v -= v * d.water_friction * dt
 		elif touching and depth > -d.stick_range:
 			accel += d.stickiness
 		else:
 			touching = false
-		v = clampf(v, d.min_speed, d.max_speed)
 		vy += accel * dt
 		y += vy * dt
 		on = depth > -1.0

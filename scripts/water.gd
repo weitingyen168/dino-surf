@@ -6,9 +6,9 @@ extends Node2D
 ## break apart again. Crests are peaked and troughs flat. The springs handle local pushes.
 ## Heights are in pixels, positive = up. Screen y = base_y - height.
 
-@export var start_x: float = -220.0
-@export var width: float = 1100.0  # wider than the zoomed-out view so edges stay off-screen
-@export var point_count: int = 170  # keeps the spacing about 6.5 px
+@export var start_x: float = -700.0  # far past the left edge of the view, whatever the tilt or perspective
+@export var width: float = 2000.0  # far past both edges of the view, so its ends never show
+@export var point_count: int = 308  # keeps the spacing about 6.5 px
 @export var base_y: float = 250.0
 @export var bottom_y: float = 640.0  # well below the screen, so the fill still covers it when the camera moves
 @export var max_height: float = 140.0

@@ -37,8 +37,8 @@ const WATER_SHADER := preload("res://shaders/pixel_water.gdshader")
 @export_group("Depth (px, + = toward the camera)")
 @export var hazards_z: float = -10.0
 @export var dino_z: float = 10.0
-@export var water_front_z: float = 60.0
-@export var water_back_z: float = -60.0
+@export var water_front_z: float = 70.0
+@export var water_back_z: float = -70.0
 
 @export_group("Camera")
 @export var fov_deg: float = 30.0  # narrower = flatter, wider = more depth
@@ -53,27 +53,22 @@ const WATER_SHADER := preload("res://shaders/pixel_water.gdshader")
 @export var dino_card_size: Vector2i = Vector2i(384, 384)  # world px around the dino
 @export var dino_resolution: float = 2.0  # texture px per world px on the dino's card; the art is made at 2×
 @export var hazards_resolution: float = 1.5  # the same for the cacti and gulls; 2 is sharper but heavy in a browser
-@export var dino_border_px: float = 3.5  # the dino gets a wider paper border, so it stands out against the sand
-@export var dino_ink_px: float = 1.5  # and a dark line around that
-@export var ink_color: Color = Color("2b2b2b")
+@export var dino_border_px: float = 0.0  # paper border around the dino (0 = none: just the outline, like the gulls)
+@export var dino_ink_px: float = 2.0  # black outline around the dino
+@export var ink_color: Color = Color.BLACK
 
 @export_group("Water")
 @export var water_art: Texture2D = preload("res://art/backgrounds/water_01.png")
 @export var foam_art: Texture2D = preload("res://art/backgrounds/water_waves_01.png")
 @export var water_pixel_scale: float = 3.0  # world px per art pixel, same as the backdrops
 @export var waterline_row: float = 98.0  # art row of the waterline (the water and foam art share one frame)
-@export var foam_above_px: float = 6.0  # how far the foam strip reaches above / below the surface
+@export var foam_above_px: float = 24.0  # how far the foam strip reaches above / below the surface
 @export var foam_below_px: float = 54.0
 @export var top_depth: float = 0.35  # how quickly the top face fades to deeper water toward the back
-@export_range(0.0, 1.0) var water_opacity: float = 1.0  # the front face (< 1 lets you see in a little; the top and back wall stay solid)
+@export_range(0.0, 1.0) var water_opacity: float = 0.8  # front and top faces; the back wall stays solid
 
 @export_group("Depth cues")
-## Things that make the 3D read: a flat lit top on the water, faces darkening with depth, a shadow under the dino,
-## and far layers fading toward the sky (haze).
-@export var water_top_front: Color = Color("2f86c6")  # the water's top face, at its front edge...
-@export var water_top_back: Color = Color("1b5c94")  # ...and at the back, where a darker line marks its far edge
-@export_range(0.0, 1.0) var water_top_opacity: float = 0.6  # clear like real water: you see down into it
-@export_range(0.0, 1.0) var water_shade: float = 0.35  # how much darker the faces get deep down
+## Things that make the 3D read: a shadow under the dino, and far layers fading toward the sky (haze).
 @export_range(0.0, 1.0) var shadow_alpha: float = 0.45  # the dino's shadow on the water, when it's on it
 @export var shadow_size: Vector2 = Vector2(56, 40)  # px across (x) and deep (z)
 @export var shadow_fade_px: float = 260.0  # the shadow shrinks and fades out by this high above the water
@@ -144,13 +139,7 @@ func _ready() -> void:
 		mat.set_shader_parameter("pixel_scale", water_pixel_scale)
 		mat.set_shader_parameter("waterline_row", waterline_row)
 		mat.set_shader_parameter("solid", i < 3)
-		mat.set_shader_parameter("opacity", [1.0, water_top_opacity, water_opacity, 1.0][i])
-		mat.render_priority = i  # back wall, then top, front, foam: so what's seen through each face is already drawn
-		mat.set_shader_parameter("flat_top", i == 1)
-		mat.set_shader_parameter("top_front", water_top_front)
-		mat.set_shader_parameter("top_back", water_top_back)
-		mat.set_shader_parameter("top_depth", (water_front_z - water_back_z) * top_depth)
-		mat.set_shader_parameter("shade", water_shade if i in [0, 2] else 0.0)
+		mat.set_shader_parameter("opacity", water_opacity if i in [1, 2] else 1.0)
 		_water_materials.append(mat)
 	var slab := MeshInstance3D.new()
 	slab.mesh = _water_mesh
@@ -205,7 +194,7 @@ func _add_backdrop(b: Backdrop) -> void:
 	card.scale = _scale_at(b.depth)
 	b.parallax = 1.0 / card.scale  # its on-screen speed, seen from the camera at that distance
 	var used := b.used_rows()
-	card.rows = Vector2(used.x - 1, used.y + 1) * b.pixel_scale  # a pixel of room for the paper border
+	card.rows = Vector2(used.x - 1, used.y + 1) * b.pixel_scale + Vector2(0.0, b.extend_down_px)  # room for the border
 	card.root = Node3D.new()
 	card.root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF  # placed every frame from the smoothed camera
 	add_child(card.root)
@@ -224,6 +213,7 @@ func _add_backdrop(b: Backdrop) -> void:
 		mat.set_shader_parameter("haze", minf(-(b.depth - water_back_z) * haze_per_px, haze_max))
 		mat.set_shader_parameter("first_row", float(b.first_row))
 		mat.set_shader_parameter("end_row", float(b.end_row()))
+		mat.set_shader_parameter("extend_down", b.extend_down_px > 0.0)
 		mat.set_shader_parameter("card_size", size)
 		mat.set_shader_parameter("is_edge", is_edge)
 		card.materials.append(mat)

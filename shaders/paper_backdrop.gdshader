@@ -12,6 +12,7 @@ uniform float border_art_px = 0.67;  // paper left around the art, in art pixels
 uniform float pixel_scale = 3.0;  // world px per art pixel
 uniform float first_row = 0.0;  // the band of art rows this backdrop shows
 uniform float end_row = 150.0;
+uniform bool extend_down = false;  // below the band, carry its bottom row on down
 uniform vec2 card_origin;  // 2D px of the card's top-left
 uniform vec2 card_size;  // 2D px the card spans
 uniform vec2 art_origin;  // 2D px of the art's top-left, scroll included
@@ -21,6 +22,9 @@ uniform float haze = 0.0;  // 0 = none, 1 = all sky
 // Art pixel p folded into the mirrored tiling, or x < 0 when outside this backdrop's band.
 vec2 fold(vec2 p, vec2 size) {
 	p.x = size.x - abs(mod(p.x, 2.0 * size.x) - size.x);
+	if (extend_down && p.y >= end_row) {
+		p.y = end_row - 0.5;
+	}
 	return (p.y < first_row || p.y >= end_row) ? vec2(-1.0) : p;
 }
 

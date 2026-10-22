@@ -23,14 +23,15 @@ extends Node2D
 ## Every kill (a sliced cactus, a knocked gull) scores kill_points times how many in a row: 25, 50, 75...
 ## The chain keeps going while each kill comes within combo_window_s of the last; a missed spin ends it.
 @export var kill_points: float = 25.0
-@export var combo_window_s: float = 3.0
+@export var combo_window_s: float = 2.0
 
 @export_group("Pace")
-## Like the Chrome Dino, the run speeds up the longer you last: the water tilts downhill toward the dino's way
-## (only the water: the sand and the camera stay level), and riding the slope is what speeds it up. The tilt and
-## the top speed rise with the score, reaching these by pace_ramp_points.
-@export var pace_tilt_deg: float = 7.0
-@export var pace_max_speed: float = 900.0
+## Like the Chrome Dino, the run speeds up steadily the longer you last, from pace_start_speed to pace_end_speed
+## by pace_ramp_points; the waves carry the dino up and down but don't change its speed. To show it, the water
+## tilts downhill toward the dino's way (only the water: the sand and the camera stay level).
+@export var pace_start_speed: float = 330.0
+@export var pace_end_speed: float = 680.0
+@export var pace_tilt_deg: float = 12.0
 @export var pace_ramp_points: float = 5000.0
 @export var retry_delay: float = 0.8  # seconds after a wipeout before a press restarts, so a held button doesn't skip the screen
 
@@ -63,7 +64,6 @@ var _milestones := 0  # milestone_points passed this run
 var wipeouts := 0
 var sliced := 0
 var game_over := false
-var _base_max_speed := 0.0  # the dino's own top speed, which the pace ramps up from
 var _game_over_time := 0.0
 
 
@@ -72,7 +72,6 @@ const SAVE_PATH := "user://dino_surf.cfg"  # on the web this lives in the browse
 
 func _ready() -> void:
 	get_tree().physics_interpolation = true
-	_base_max_speed = dino.max_speed
 	water.tilt_pivot_x = dino.home_x
 	$HUD/Lookahead.setup(obstacle_spawner, gull_spawner, view)
 	var save := ConfigFile.new()
@@ -109,7 +108,7 @@ func _physics_process(delta: float) -> void:
 		return
 	var pace := clampf(distance / pace_ramp_points, 0.0, 1.0)
 	water.tilt = deg_to_rad(pace_tilt_deg) * pace
-	dino.max_speed = lerpf(_base_max_speed, pace_max_speed, pace)
+	dino.speed = lerpf(pace_start_speed, pace_end_speed, pace)
 	water.speed = dino.speed
 	distance += water.speed * delta / 10.0
 	_combo_left -= delta
@@ -182,6 +181,7 @@ func restart() -> void:
 	Engine.time_scale = 1.0
 	water.reset()
 	dino.reset()
+	dino.speed = pace_start_speed
 	water.speed = dino.speed
 	camera.reset()
 	controls.reset()

@@ -87,6 +87,7 @@ script = ExtResource("11_backdrop")
 texture = ExtResource("14_ground")
 water = NodePath("../../Water")
 depth = -800.0
+extend_down_px = 400.0
 
 
 [node name="Cacti" type="Node2D" parent="Background" node_paths=PackedStringArray("water")]

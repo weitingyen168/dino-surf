@@ -12,10 +12,10 @@ signal cactus_sliced
 @export var dino: Dino
 @export var container: Node2D
 
-@export var spawn_x: float = 820.0  # just off the right edge (the zoomed-out view reaches about x = 750)
+@export var spawn_x: float = 1250.0  # well past the right edge (about x = 800), so its warning marker shows first
 @export var min_gap_px: float = 450.0  # distance travelled between debris
 @export var max_gap_px: float = 900.0
-@export var first_obstacle_px: float = 900.0  # breathing room at the start of a run
+@export var first_obstacle_px: float = 450.0  # breathing room at the start of a run
 ## Debris only goes where the next flight the swell gives the dino would carry it over with this many px to spare,
 ## so every piece is clearable from wherever the last one left you. Higher = more forgiving.
 @export var clear_margin_px: float = 8.0
@@ -24,7 +24,7 @@ signal cactus_sliced
 @export var buoy_chance: float = 0.12  # chance each piece of debris is a buoy instead of a cactus
 
 var obstacles: Array[Obstacle] = []
-var next_spawn_px := 900.0  # px to go until the next debris; reset() sets it to first_obstacle_px
+var next_spawn_px := 450.0  # px to go until the next debris; reset() sets it to first_obstacle_px
 
 
 func reset() -> void:
@@ -79,7 +79,7 @@ func _spawn() -> bool:
 	else:
 		x = water.next_crest(spawn_x) + randf_range(40.0, 110.0)  # a leap clears anything, so no flight needed
 	# A cactus is planted at the calm waterline (the swell moves around it); a buoy floats on the swell.
-	o.position = Vector2(x, water.surface_y(x) if buoy else water.base_y)
+	o.position = Vector2(x, water.surface_y(x) if buoy else water.calm_y(x))
 	container.add_child(o)
 	obstacles.append(o)
 	return true

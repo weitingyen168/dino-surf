@@ -15,7 +15,7 @@ extends Node2D
 ##   View3D           redraws all of the above as a 3D pop-up book (V: flat 2D view)
 ##   Sounds           music and sound effects
 ##   Invert           flips the colours at every 1000 points
-##   HUD              score, the WIPEOUT screen, and the start screen (HUD/Title) that holds the game paused
+##   HUD              score, combo, warning markers for what's coming, the WIPEOUT screen, and the start screen (HUD/Title) that holds the game paused
 
 @export var milestone_points: float = 1000.0  # a chime and a colour flip every this many points
 
@@ -26,9 +26,10 @@ extends Node2D
 @export var combo_window_s: float = 3.0
 
 @export_group("Pace")
-## Like the Chrome Dino, the run speeds up the longer you last: the dino's slowest speed (what it coasts down to)
-## and its top speed rise with the score, reaching these by pace_ramp_points.
-@export var pace_min_speed: float = 560.0
+## Like the Chrome Dino, the run speeds up the longer you last: the water tilts downhill toward the dino's way
+## (only the water: the sand and the camera stay level), and riding the slope is what speeds it up. The tilt and
+## the top speed rise with the score, reaching these by pace_ramp_points.
+@export var pace_tilt_deg: float = 7.0
 @export var pace_max_speed: float = 900.0
 @export var pace_ramp_points: float = 5000.0
 @export var retry_delay: float = 0.8  # seconds after a wipeout before a press restarts, so a held button doesn't skip the screen
@@ -51,6 +52,7 @@ extends Node2D
 @onready var hud: Hud = $HUD
 @onready var sounds: Sounds = $Sounds
 @onready var invert: InvertScreen = $Invert
+@onready var view: View3D = $View3D
 
 var distance := 0.0  # surfed this run, in points; drives the pace
 var bonus := 0.0  # combo points this run
@@ -61,8 +63,7 @@ var _milestones := 0  # milestone_points passed this run
 var wipeouts := 0
 var sliced := 0
 var game_over := false
-var _base_min_speed := 0.0  # the dino's own speeds, which the pace ramps up from
-var _base_max_speed := 0.0
+var _base_max_speed := 0.0  # the dino's own top speed, which the pace ramps up from
 var _game_over_time := 0.0
 
 
@@ -71,8 +72,9 @@ const SAVE_PATH := "user://dino_surf.cfg"  # on the web this lives in the browse
 
 func _ready() -> void:
 	get_tree().physics_interpolation = true
-	_base_min_speed = dino.min_speed
 	_base_max_speed = dino.max_speed
+	water.tilt_pivot_x = dino.home_x
+	$HUD/Lookahead.setup(obstacle_spawner, gull_spawner, view)
 	var save := ConfigFile.new()
 	if save.load(SAVE_PATH) == OK:
 		best = save.get_value("score", "best", 0.0)
@@ -106,7 +108,7 @@ func _physics_process(delta: float) -> void:
 			restart()
 		return
 	var pace := clampf(distance / pace_ramp_points, 0.0, 1.0)
-	dino.min_speed = lerpf(_base_min_speed, pace_min_speed, pace)
+	water.tilt = deg_to_rad(pace_tilt_deg) * pace
 	dino.max_speed = lerpf(_base_max_speed, pace_max_speed, pace)
 	water.speed = dino.speed
 	distance += water.speed * delta / 10.0
@@ -173,6 +175,7 @@ func restart() -> void:
 	game_over = false
 	hud.show_wipeout(false)
 	distance = 0.0
+	water.tilt = 0.0
 	bonus = 0.0
 	_milestones = 0
 	_end_combo()

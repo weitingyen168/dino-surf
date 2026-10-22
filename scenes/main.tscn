@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://scripts/title_screen.gd" id="17_title"]
 [ext_resource type="Script" path="res://scripts/sounds.gd" id="18_sounds"]
 [ext_resource type="Script" path="res://scripts/invert_screen.gd" id="19_invert"]
+[ext_resource type="Script" path="res://scripts/lookahead.gd" id="20_lookahead"]
 [ext_resource type="Texture2D" path="res://art/backgrounds/desert_far_mountains_01.png" id="12_far"]
 [ext_resource type="Texture2D" path="res://art/backgrounds/desert_mountains_01.png" id="13_mountains"]
 [ext_resource type="Texture2D" path="res://art/backgrounds/desert_ground_01.png" id="14_ground"]
@@ -141,6 +142,16 @@ grow_horizontal = 0
 theme_override_colors/font_color = Color(0.32549, 0.32549, 0.32549, 1)
 theme_override_font_sizes/font_size = 16
 horizontal_alignment = 2
+
+[node name="Lookahead" type="Control" parent="HUD"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("20_lookahead")
 
 [node name="BigCombo" type="Label" parent="HUD"]
 visible = false

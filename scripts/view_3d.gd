@@ -48,14 +48,15 @@ const WATER_SHADER := preload("res://shaders/pixel_water.gdshader")
 @export var paper_color: Color = Color.WHITE
 @export var edge_color: Color = Color("a8a8a8")
 @export var border_px: float = 2.0  # paper left around the art, in world px
+@export var card_thickness: bool = false  # a darker edge slice behind each card; costs a second full draw of it
 @export var thickness_px: float = 2.0  # how far behind each card its edge slice sits
 @export var card_size: Vector2i = Vector2i(1088, 800)  # world px a full-view card covers: the view plus room for lean, shake and pitch
-@export var dino_card_size: Vector2i = Vector2i(384, 384)  # world px around the dino
+@export var dino_card_size: Vector2i = Vector2i(256, 256)  # world px around the dino
 @export var dino_resolution: float = 2.0  # texture px per world px on the dino's card; the art is made at 2×
-@export var hazards_resolution: float = 1.5  # the same for the cacti and gulls; 2 is sharper but heavy in a browser
+@export var hazards_resolution: float = 1.25  # the same for the cacti and gulls; 2 is sharper but heavy in a browser
 @export var dino_border_px: float = 0.0  # paper border around the dino (0 = none: just the outline, like the gulls)
-@export var dino_ink_px: float = 2.0  # black outline around the dino
-@export var ink_color: Color = Color.BLACK
+@export var dino_ink_px: float = 2.0  # outline around the dino, in ink_color (0 = none)
+@export var ink_color: Color = Color("3d1457")  # dark purple, to go with the dino
 
 @export_group("Water")
 @export var water_art: Texture2D = preload("res://art/backgrounds/water_01.png")
@@ -201,7 +202,7 @@ func _add_backdrop(b: Backdrop) -> void:
 	var size := Vector2(card_size.x, card.rows.y - card.rows.x)
 	var quad := QuadMesh.new()
 	quad.size = size * card.scale * S
-	for is_edge in [false, true]:
+	for is_edge in ([false, true] if card_thickness else [false]):
 		var mat := ShaderMaterial.new()
 		mat.shader = BACKDROP_SHADER
 		mat.set_shader_parameter("art", b.texture)
@@ -251,7 +252,7 @@ func _add_card(node: CanvasItem, bit: int, z: float, size: Vector2, resolution: 
 	card.root = root
 	var quad := QuadMesh.new()
 	quad.size = size * card.scale * S
-	for is_edge in [false, true]:
+	for is_edge in ([false, true] if card_thickness else [false]):
 		var mat := ShaderMaterial.new()
 		mat.shader = CARD_SHADER
 		mat.set_shader_parameter("art", vp.get_texture())
@@ -337,7 +338,10 @@ func _place_backdrop(card: Backdrop3D, cam: Transform3D) -> void:
 ## surface) for the shader: the water body stays put sideways (it only rides the waves up and down), the foam
 ## scrolls with the ocean.
 func _build_water() -> void:
-	var pts := water.surface_points()
+	var all := water.surface_points()
+	var pts := PackedVector2Array()  # every other point: about 13 px apart still reads as a smooth curve, at half the work
+	for i in range(0, all.size(), 2):
+		pts.append(all[i])
 	var n := pts.size()
 	if n < 2:
 		return

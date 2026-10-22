@@ -1,7 +1,7 @@
 class_name Seagull
 extends Node2D
 ## A flapping seagull flying toward the dino, bobbing a little. Hitting one wipes you out;
-## a spin kills it on the spot, in a puff. The node's origin is the middle of its body.
+## a spin knocks it tumbling away. The node's origin is the middle of its body.
 
 const FLY := preload("res://art/obstacles/seagull_fly_01.png")  # flap frames, left to right
 const FRAMES := 9
@@ -16,13 +16,16 @@ const BODY := Vector2(0.58, 0.45)  # the body's middle, as a fraction of a frame
 
 var water: Water
 var altitude := 200.0  # screen y it cruises at
+var knocked := false
 
 var _t := 0.0
 var _phase := randf() * TAU  # so gulls don't all bob and flap in step
+var _vel := Vector2.ZERO
+var _spin := 0.0
 
 
 func _ready() -> void:
-	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR  # drawn scaled; smooth, not jagged
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR  # drawn scaled and tumbles when knocked; smooth, not jagged
 	scale = Vector2.ONE * sprite_scale
 
 
@@ -32,17 +35,24 @@ func hit_rect() -> Rect2:
 	return Rect2(position + Vector2(-w / 2.0, -8), Vector2(w, 16))
 
 
-## Spun into: gone at once, in a puff.
-func kill() -> void:
-	Puff.spawn(get_parent(), position, Color.WHITE, water)
-	queue_free()
+## Spun into: it tumbles off up and back, harmless.
+func knock() -> void:
+	knocked = true
+	_vel = Vector2(randf_range(80, 160), randf_range(-260, -160))
+	_spin = randf_range(8.0, 12.0)
 
 
 func _physics_process(delta: float) -> void:
 	_t += delta
-	position.x -= (water.speed + fly_speed) * delta
-	position.y = altitude + sin(_t * 1.7 + _phase) * 6.0
-	if position.x < -220.0:
+	if knocked:
+		_vel.y += 500.0 * delta
+		position += _vel * delta
+		rotation += _spin * delta
+		position.x -= water.speed * delta
+	else:
+		position.x -= (water.speed + fly_speed) * delta
+		position.y = altitude + sin(_t * 1.7 + _phase) * 6.0
+	if position.x < -220.0 or position.y > 900.0:
 		queue_free()
 
 

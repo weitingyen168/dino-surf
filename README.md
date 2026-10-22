@@ -16,7 +16,7 @@ Markers on the right edge warn of what's coming (green cactus, red buoy, white g
 Surf as far as you can. The score (top right, Chrome Dino style) is the distance; your best is saved.
 Like the Chrome Dino, the pace picks up steadily the longer you last (and the water tilts downhill to show it);
 the waves carry you up and down, and splash when you land, but never change your speed, and the colours flip every 1000 points. Kills in a row build a combo for bonus points (25, 50, 75...);
-from three in a row a big COMBO counter shows up (it's at full speed around 5000 points); now and then
+from three in a row a big COMBO counter shows up (it's at full speed around 3500 points); now and then
 a buoy floats by.
 A spin that misses leaves the dino panicked (scared face, red board) until it lands: no spin left.
 

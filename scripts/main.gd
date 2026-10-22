@@ -29,10 +29,10 @@ extends Node2D
 ## Like the Chrome Dino, the run speeds up steadily the longer you last, from pace_start_speed to pace_end_speed
 ## by pace_ramp_points; the waves carry the dino up and down but don't change its speed. To show it, the water
 ## tilts downhill toward the dino's way (only the water: the sand and the camera stay level).
-@export var pace_start_speed: float = 330.0
+@export var pace_start_speed: float = 260.0
 @export var pace_end_speed: float = 680.0
 @export var pace_tilt_deg: float = 12.0
-@export var pace_ramp_points: float = 5000.0
+@export var pace_ramp_points: float = 3500.0
 @export var retry_delay: float = 0.8  # seconds after a wipeout before a press restarts, so a held button doesn't skip the screen
 
 @export_group("Wipeout")

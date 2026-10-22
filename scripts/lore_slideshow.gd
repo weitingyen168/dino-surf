@@ -10,8 +10,7 @@ const SLIDES := [
 	[preload("res://art/ui/lore_01.png"), "Defeated by a cactus. Again."],
 	[preload("res://art/ui/lore_02.png"), "Then, half buried in the sand... a handheld?"],
 	[preload("res://art/ui/lore_03.png"), "It grew. And grew."],
-	[preload("res://art/ui/lore_04.png"), "That night, a storm rolled over the desert."],
-	[preload("res://art/ui/lore_05.png"), "The handheld burst, and the desert flooded. Surf's up."],
+	[preload("res://art/ui/lore_04.png"), "That night a storm hit, the handheld burst, and the desert flooded. Surf's up."],
 ]
 
 var _i := 0

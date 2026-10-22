@@ -28,6 +28,7 @@ const PIXEL_SPRITES := [
 
 ## Story slides: every image in the folder, ordered by the (n) in its name, scaled to the 1280×720 window.
 const LORE_DIR := "LORE"
+const LORE_SKIP := ["thunder_storm(4).jpg"]  # not ours to use (a photo); left out of the slideshow
 const LORE_OUT := "ui/lore_%02d.png"
 const LORE_SIZE := Vector2i(1280, 720)
 
@@ -63,7 +64,7 @@ func _initialize() -> void:
 		img = img.get_region(img.get_used_rect())
 		_save(img, sprite[1])
 		print("%s: %d× blocks -> %s" % [sprite[0], block, img.get_size()])
-	var slides := Array(DirAccess.get_files_at(src.path_join(LORE_DIR)))
+	var slides := Array(DirAccess.get_files_at(src.path_join(LORE_DIR))).filter(func(f): return f not in LORE_SKIP)
 	var number := RegEx.create_from_string("[(]([0-9]+)[)]")  # the (n) in a slide's name
 	slides.sort_custom(func(a, b): return int(number.search(a).get_string(1)) < int(number.search(b).get_string(1)))
 	for i in slides.size():
